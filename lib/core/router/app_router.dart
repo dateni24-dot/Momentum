@@ -5,8 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 
-part 'app_router.g.dart';
-
 // Rutas nombradas
 abstract class AppRoutes {
   static const String login = '/login';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Logo de Momentum con texto corporativo.
 /// El logo PNG se cargará desde assets cuando esté disponible.
