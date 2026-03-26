@@ -66,11 +66,11 @@ begin
 end;
 $$;
 
-create trigger profiles_updated_at
-  before update on public.profiles
+create trigger users_updated_at
+  before update on public.users
   for each row execute procedure public.set_updated_at();
 
 -- =============================================
 -- VERIFICACIÓN: tras ejecutar, deberías ver:
--- SELECT * FROM public.profiles;  -> vacía, se llenará al registrarse
+-- SELECT * FROM public.users;  -> vacía, se llenará al registrarse
 -- =============================================
