@@ -33,7 +33,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _confirmController.dispose();
     super.dispose();
   }
-
+  // Gestió de la lógica i validació del registre d'usuaris
   Future<void> _onRegister() async {
     if (!_formKey.currentState!.validate()) return;
 

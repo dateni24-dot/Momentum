@@ -28,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
-
+  // Gestió de la lógica del login i validació
   Future<void> _onLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
