@@ -15,7 +15,7 @@ class LoginScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
-
+// Pantalla de login amb validació i gestió de la lógica d'autenticació
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -31,14 +31,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // Gestió de la lógica del login i validació
   Future<void> _onLogin() async {
     if (!_formKey.currentState!.validate()) return;
-
+    // Llamada al notifier para iniciar sesión con email y contraseña
     final result = await ref.read(authNotifierProvider.notifier).signIn(
           email: _emailController.text,
           password: _passwordController.text,
         );
 
     if (!mounted) return;
-
+    // Manejo del resultado del login y navegación o muestra de errores
     switch (result) {
       case AuthSuccess():
         context.go(AppRoutes.home);
