@@ -19,6 +19,7 @@ drop policy if exists "Users can update own profile" on public."user";
 -- El usuario solo puede leer su propio registro
 create policy "Perfil propio lectura"
   on public."user" for select
+  -- auth.uid() devuelve el ID del usuario autenticado, que debe coincidir con el ID del registro
   using (auth.uid() = id);
 
 -- El sistema (trigger SECURITY DEFINER) puede insertar al registrarse
