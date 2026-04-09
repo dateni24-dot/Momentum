@@ -12,9 +12,20 @@ abstract class AppRoutes {
   static const String home = '/home';
 }
 
+/// Listenable que se notifica cada vez que cambia el estado de auth
+class _AuthChangeNotifier extends ChangeNotifier {
+  _AuthChangeNotifier() {
+    Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      notifyListeners();
+    });
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
+  final authNotifier = _AuthChangeNotifier();
   return GoRouter(
     initialLocation: _getInitialRoute(),
+    refreshListenable: authNotifier,
     routes: [
       GoRoute(
         path: AppRoutes.login,
@@ -26,14 +37,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      // TODO: aÃ±adir HomeScreen cuando estÃ© lista
+      // TODO: añadir HomeScreen cuando esté lista
       GoRoute(
         path: AppRoutes.home,
         name: 'home',
-        builder: (context, state) => const Scaffold(
-          body: Center(
+        builder: (context, state) => Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () async {
+                  await Supabase.instance.client.auth.signOut();
+                },
+              ),
+            ],
+          ),
+          body: const Center(
             child: Text(
-              'Home - PrÃ³ximamente',
+              'Home - Próximamente',
               style: TextStyle(color: Colors.white),
             ),
           ),

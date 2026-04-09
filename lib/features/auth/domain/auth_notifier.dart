@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/auth_provider.dart';
@@ -37,10 +38,12 @@ class AuthNotifier extends AsyncNotifier<void> {
       return const AuthSuccess();
     } on AuthException catch (e) {
       state = const AsyncData(null);
+      debugPrint('[Auth] signIn AuthException: ${e.message}');
       return AuthFailure(_mapAuthError(e.message));
-    } catch (_) {
+    } catch (e) {
       state = const AsyncData(null);
-      return const AuthFailure('Ha ocurrido un error inesperado.');
+      debugPrint('[Auth] signIn error: $e');
+      return AuthFailure('Error inesperado: $e');
     }
   }
 
@@ -60,10 +63,12 @@ class AuthNotifier extends AsyncNotifier<void> {
       return const AuthSuccess();
     } on AuthException catch (e) {
       state = const AsyncData(null);
+      debugPrint('[Auth] signUp AuthException: ${e.message}');
       return AuthFailure(_mapAuthError(e.message));
-    } catch (_) {
+    } catch (e) {
       state = const AsyncData(null);
-      return const AuthFailure('Ha ocurrido un error inesperado.');
+      debugPrint('[Auth] signUp error: $e');
+      return AuthFailure('Error inesperado: $e');
     }
   }
 
@@ -81,11 +86,20 @@ class AuthNotifier extends AsyncNotifier<void> {
         msg.contains('already registered')) {
       return 'Este email ya está registrado.';
     }
-    if (msg.contains('password')) {
+    if (msg.contains('password should be at least') ||
+        msg.contains('password is too short')) {
       return 'La contraseña debe tener al menos 8 caracteres.';
     }
-    if (msg.contains('email')) {
+    if (msg.contains('unable to validate email') ||
+        msg.contains('invalid email') ||
+        msg.contains('email format')) {
       return 'El formato del email no es válido.';
+    }
+    if (msg.contains('database error')) {
+      return 'Error al guardar el usuario. Contacta con soporte.';
+    }
+    if (msg.contains('email rate limit') || msg.contains('rate limit')) {
+      return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
     }
     return 'Error: $message';
   }
