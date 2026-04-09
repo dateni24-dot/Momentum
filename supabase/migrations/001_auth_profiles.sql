@@ -30,6 +30,7 @@ create policy "Perfil propio insercion"
 -- El usuario solo puede actualizar su propio registro
 create policy "Perfil propio actualizacion"
   on public."user" for update
+  -- auth.uid() devuelve el ID del usuario autenticado, que debe coincidir con el ID del registro
   using (auth.uid() = id);
 
 -- 3. Trigger: crea la fila en user automáticamente al registrarse
