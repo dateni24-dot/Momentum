@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/habits/presentation/home_screen.dart';
 
 // Rutas nombradas
 abstract class AppRoutes {
@@ -37,29 +38,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      // TODO: añadir HomeScreen cuando esté lista
       GoRoute(
         path: AppRoutes.home,
         name: 'home',
-        builder: (context, state) => Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.logout),
-                onPressed: () async {
-                  await Supabase.instance.client.auth.signOut();
-                },
-              ),
-            ],
-          ),
-          body: const Center(
-            child: Text(
-              'Home - Próximamente',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ),
+        builder: (context, state) => const HomeScreen(),
       ),
     ],
     redirect: (context, state) {

@@ -5,17 +5,24 @@ class AppConstants {
   static const String appName = 'Momentum';
   static const String appVersion = '1.0.0';
 
-  // Supabase tables
-  static const String tableProfiles = 'profiles';
-  static const String tableHabits = 'habits';
-  static const String tableAvatars = 'avatars';
-  static const String tableAchievements = 'achievements';
-  static const String tableUserAvatars = 'user_avatars';
-  static const String tableUserAchievements = 'user_achievements';
-  static const String tableHabitSessions = 'habit_sessions';
+  // Supabase tables (nombres exactos del esquema real)
+  static const String tableUser            = 'user';
+  static const String tableHabits          = 'habit';
+  static const String tableUserHabits      = 'user_habit';
+  static const String tableAvatars         = 'avatars';
+  static const String tableAvatarEvo       = 'avatar_evo';
+  static const String tableUserAvatar      = 'user_avatar';
+  static const String tableAchievements    = 'achievement';
+  static const String tableUserAchievement = 'user_achievement';
+  static const String tableStatistic       = 'statistic';
+  static const String tableUserStatistic   = 'user_statistic';
 
-  // Validation
+  // Validation - auth
   static const int usernameMinLength = 3;
   static const int usernameMaxLength = 10;
   static const int passwordMinLength = 8;
+
+  // Validation - habits
+  static const int habitNameMinLength = 2;
+  static const int habitNameMaxLength = 50;
 }
