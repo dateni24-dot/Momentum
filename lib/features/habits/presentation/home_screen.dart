@@ -8,34 +8,247 @@ import 'widgets/habit_card.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/domain/auth_notifier.dart';
 
-/// Pantalla principal: muestra los hábitos del usuario
-class HomeScreen extends ConsumerWidget {
+// ---------------------------------------------------------------------------
+// HomeScreen principal — gestiona la animación de bienvenida y el tab actual
+// ---------------------------------------------------------------------------
+
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  bool _showWelcome = true;
+  late final AnimationController _welcomeCtrl;
+  late final Animation<double>   _welcomeFade;
+  int _currentTab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Controlador para desvanecer el splash de bienvenida
+    _welcomeCtrl = AnimationController(
+      vsync:    this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _welcomeFade = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _welcomeCtrl, curve: Curves.easeOut),
+    );
+
+    // Mostrar splash 2 segundos, luego desvanecerlo
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (!mounted) return;
+      _welcomeCtrl.forward().then((_) {
+        if (mounted) setState(() => _showWelcome = false);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _welcomeCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onTabTapped(int index) {
+    if (index == 0) {
+      setState(() => _currentTab = 0);
+      return;
+    }
+    final labels = ['', 'Perfil', 'Tienda'];
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.construction_rounded,
+                color: AppColors.primary, size: 18),
+            const SizedBox(width: 10),
+            Text('${labels[index]} — Próximamente'),
+          ],
+        ),
+        backgroundColor: AppColors.surfaceVariant,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user     = Supabase.instance.client.auth.currentUser;
+    final username = user?.userMetadata?['username'] as String? ??
+        user?.email?.split('@').first ??
+        'Usuario';
+
     final habitsAsync = ref.watch(habitsNotifierProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: habitsAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
+      body: Stack(
+        children: [
+          // Contenido principal
+          SafeArea(
+            child: habitsAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              error: (_, __) => _ErrorView(
+                onRetry: () =>
+                    ref.read(habitsNotifierProvider.notifier).refresh(),
+              ),
+              data: (state) => _HomeContent(state: state),
+            ),
           ),
-          error: (err, _) => _ErrorView(
-            onRetry: () => ref.read(habitsNotifierProvider.notifier).refresh(),
-          ),
-          data: (state) => _HomeContent(state: state),
-        ),
+
+          // Splash de bienvenida (overlay sobre todo)
+          if (_showWelcome)
+            FadeTransition(
+              opacity: _welcomeFade,
+              child: _WelcomeSplash(username: username),
+            ),
+        ],
       ),
-      floatingActionButton: _AddHabitFab(),
+      bottomNavigationBar: _BottomNav(
+        currentIndex: _currentTab,
+        onTap:        _onTabTapped,
+      ),
+      floatingActionButton: _currentTab == 0 ? _AddHabitFab() : null,
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Contenido principal
+// Splash de bienvenida animado
+// ---------------------------------------------------------------------------
+
+class _WelcomeSplash extends StatefulWidget {
+  final String username;
+  const _WelcomeSplash({required this.username});
+
+  @override
+  State<_WelcomeSplash> createState() => _WelcomeSplashState();
+}
+
+class _WelcomeSplashState extends State<_WelcomeSplash>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double>   _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync:    this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.92, end: 1.08).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.background,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Logo pulsante con glow neon
+            ScaleTransition(
+              scale: _pulseAnim,
+              child: Container(
+                width:  110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(
+                    colors: [AppColors.primaryDark, Color(0xFF0A0A0A)],
+                  ),
+                  border: Border.all(color: AppColors.primary, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color:      AppColors.primary.withValues(alpha: 0.5),
+                      blurRadius: 40,
+                      spreadRadius: 8,
+                    ),
+                    BoxShadow(
+                      color:      AppColors.primaryLight.withValues(alpha: 0.2),
+                      blurRadius: 80,
+                      spreadRadius: 20,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.trending_up_rounded,
+                  color: AppColors.primary,
+                  size:  55,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 36),
+
+            const Text(
+              'MOMENTUM',
+              style: TextStyle(
+                color:        AppColors.textPrimary,
+                fontSize:     28,
+                fontWeight:   FontWeight.w700,
+                letterSpacing: 8,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            const Text(
+              '¡Bienvenido de nuevo!',
+              style: TextStyle(
+                color:    AppColors.textSecondary,
+                fontSize: 15,
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            // Nombre de usuario en verde
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              decoration: BoxDecoration(
+                color:        AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                widget.username,
+                style: const TextStyle(
+                  color:      AppColors.primary,
+                  fontSize:   20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Contenido principal (hábitos)
 // ---------------------------------------------------------------------------
 
 class _HomeContent extends ConsumerWidget {
@@ -47,10 +260,9 @@ class _HomeContent extends ConsumerWidget {
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
-        // Header con saludo y datos del usuario
-        SliverToBoxAdapter(child: _HomeHeader()),
+        SliverToBoxAdapter(child: _HomeHeader(habitCount: state.habits.length)),
 
-        // Sección "Mis Hábitos"
+        // Título sección
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
@@ -87,22 +299,33 @@ class _HomeContent extends ConsumerWidget {
           ),
         ),
 
-        // Lista de hábitos o estado vacío
+        // Lista o estado vacío
         state.habits.isEmpty
             ? const SliverFillRemaining(
                 hasScrollBody: false,
                 child: _EmptyHabitsView(),
               )
             : SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 120),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final habit = state.habits[index];
-                      return HabitCard(
-                        habit:    habit,
-                        onEdit:   () => _openForm(context, habit: habit),
-                        onDelete: () => _confirmDelete(context, ref, habit),
+                      // Animación de entrada escalonada por tarjeta
+                      return TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: Duration(
+                            milliseconds: 250 + index * 70),
+                        curve: Curves.easeOutCubic,
+                        builder: (_, value, child) => Transform.translate(
+                          offset: Offset(0, 24 * (1 - value)),
+                          child:  Opacity(opacity: value, child: child),
+                        ),
+                        child: HabitCard(
+                          habit:    habit,
+                          onEdit:   () => _openForm(context, habit: habit),
+                          onDelete: () => _confirmDelete(context, ref, habit),
+                        ),
                       );
                     },
                     childCount: state.habits.length,
@@ -122,11 +345,7 @@ class _HomeContent extends ConsumerWidget {
     );
   }
 
-  void _confirmDelete(
-    BuildContext context,
-    WidgetRef ref,
-    HabitModel habit,
-  ) {
+  void _confirmDelete(BuildContext context, WidgetRef ref, HabitModel habit) {
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -134,10 +353,7 @@ class _HomeContent extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           '¿Eliminar hábito?',
-          style: TextStyle(
-            color:      AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
         ),
         content: Text(
           'Se eliminará "${habit.habitName}" de tu lista. Esta acción no se puede deshacer.',
@@ -146,20 +362,14 @@ class _HomeContent extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
+            child: const Text('Cancelar',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(
-                color:      AppColors.error,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: const Text('Eliminar',
+                style: TextStyle(
+                    color: AppColors.error, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -182,96 +392,168 @@ class _HomeContent extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Header
+// Header rediseñado: avatar + saludo + stats
 // ---------------------------------------------------------------------------
 
 class _HomeHeader extends ConsumerWidget {
+  final int habitCount;
+  const _HomeHeader({required this.habitCount});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user     = Supabase.instance.client.auth.currentUser;
     final username = user?.userMetadata?['username'] as String? ??
         user?.email?.split('@').first ??
         'Usuario';
+    final initial  = username.isNotEmpty ? username[0].toUpperCase() : 'U';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Fila superior: logo + logout
+
+          // ── Barra superior: logo + logout ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Logo pequeño con texto
               Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 30, height: 30,
                     decoration: BoxDecoration(
-                      shape:       BoxShape.circle,
-                      gradient:    const RadialGradient(
+                      shape: BoxShape.circle,
+                      gradient: const RadialGradient(
                         colors: [AppColors.primaryDark, Color(0xFF0D0D0D)],
                       ),
                       border: Border.all(color: AppColors.primary, width: 1.5),
                     ),
-                    child: const Icon(
-                      Icons.trending_up_rounded,
-                      color: AppColors.primary,
-                      size:  18,
-                    ),
+                    child: const Icon(Icons.trending_up_rounded,
+                        color: AppColors.primary, size: 15),
                   ),
                   const SizedBox(width: 8),
                   const Text(
                     'MOMENTUM',
                     style: TextStyle(
-                      color:       AppColors.textPrimary,
-                      fontWeight:  FontWeight.w700,
-                      fontSize:    14,
+                      color:        AppColors.textPrimary,
+                      fontWeight:   FontWeight.w700,
+                      fontSize:     13,
                       letterSpacing: 4,
                     ),
                   ),
                 ],
               ),
-
-              // Botón logout
               _LogoutButton(),
             ],
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
-          // Saludo
-          Text(
-            _getGreeting(),
-            style: const TextStyle(
-              color:    AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            username,
-            style: const TextStyle(
-              color:      AppColors.textPrimary,
-              fontSize:   26,
-              fontWeight: FontWeight.w700,
-            ),
+          // ── Avatar + saludo + nombre ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Avatar placeholder con inicial
+              Container(
+                width:  68,
+                height: 68,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end:   Alignment.bottomRight,
+                    colors: [AppColors.primaryLight, AppColors.primaryDark],
+                  ),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.6),
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color:      AppColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color:      Colors.white,
+                      fontSize:   28,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Saludo + nombre
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getGreeting(),
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      username,
+                      style: const TextStyle(
+                        color:      AppColors.textPrimary,
+                        fontSize:   24,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 20),
 
-          // Línea divisora con gradiente
+          // ── Línea divisora con gradiente ──
           Container(
             height: 1,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  AppColors.primary,
-                  AppColors.primaryDark,
-                  Colors.transparent,
-                ],
+                colors: [AppColors.primary, AppColors.primaryDark, Colors.transparent],
               ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // ── Chips de estadísticas rápidas ──
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _StatChip(
+                  icon:  Icons.task_alt_rounded,
+                  label: '$habitCount hábito${habitCount == 1 ? '' : 's'}',
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon:  Icons.local_fire_department_rounded,
+                  label: 'Racha: 0 días',
+                  color: const Color(0xFFFF5722),
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon:  Icons.monetization_on_rounded,
+                  label: '0 monedas',
+                  color: const Color(0xFFFFC107),
+                ),
+              ],
             ),
           ),
 
@@ -283,14 +565,57 @@ class _HomeHeader extends ConsumerWidget {
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Buenos días';
-    if (hour < 19) return 'Buenas tardes';
-    return 'Buenas noches';
+    if (hour < 12) return 'Buenos días ☀️';
+    if (hour < 19) return 'Buenas tardes 🌤️';
+    return 'Buenas noches 🌙';
+  }
+}
+
+/// Chip de estadística rápida
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color:        color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withValues(alpha: 0.25),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color:      color,
+              fontSize:   12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Botón de logout
+// Botón logout
 // ---------------------------------------------------------------------------
 
 class _LogoutButton extends ConsumerWidget {
@@ -298,11 +623,8 @@ class _LogoutButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return IconButton(
       tooltip: 'Cerrar sesión',
-      icon: const Icon(
-        Icons.logout_rounded,
-        color: AppColors.textSecondary,
-        size:  20,
-      ),
+      icon: const Icon(Icons.logout_rounded,
+          color: AppColors.textSecondary, size: 20),
       onPressed: () async {
         final confirmed = await showDialog<bool>(
           context: context,
@@ -310,30 +632,22 @@ class _LogoutButton extends ConsumerWidget {
             backgroundColor: AppColors.surfaceVariant,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16)),
-            title: const Text(
-              '¿Cerrar sesión?',
-              style: TextStyle(
-                color:      AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            title: const Text('¿Cerrar sesión?',
+                style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text(
-                  'Cancelar',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: AppColors.textSecondary)),
               ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text(
-                  'Salir',
-                  style: TextStyle(
-                    color:      AppColors.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: const Text('Salir',
+                    style: TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -347,7 +661,63 @@ class _LogoutButton extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// FAB para añadir hábito
+// Barra de navegación inferior
+// ---------------------------------------------------------------------------
+
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  const _BottomNav({required this.currentIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: const Border(
+            top: BorderSide(color: AppColors.border, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color:      Colors.black.withValues(alpha: 0.5),
+            blurRadius: 20,
+            offset:     const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex:       currentIndex,
+        onTap:              onTap,
+        backgroundColor:    Colors.transparent,
+        elevation:          0,
+        selectedItemColor:  AppColors.primary,
+        unselectedItemColor: AppColors.textSecondary,
+        selectedFontSize:   11,
+        unselectedFontSize: 11,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon:       Icon(Icons.track_changes_outlined),
+            activeIcon: Icon(Icons.track_changes_rounded),
+            label:      'Hábitos',
+          ),
+          BottomNavigationBarItem(
+            icon:       Icon(Icons.person_outline_rounded),
+            activeIcon: Icon(Icons.person_rounded),
+            label:      'Perfil',
+          ),
+          BottomNavigationBarItem(
+            icon:       Icon(Icons.store_outlined),
+            activeIcon: Icon(Icons.store_rounded),
+            label:      'Tienda',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FAB animado para añadir hábito
 // ---------------------------------------------------------------------------
 
 class _AddHabitFab extends StatelessWidget {
@@ -358,10 +728,16 @@ class _AddHabitFab extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color:      AppColors.primary.withValues(alpha: 0.4),
-            blurRadius: 16,
+            color:      AppColors.primary.withValues(alpha: 0.45),
+            blurRadius: 20,
             spreadRadius: 0,
-            offset:     const Offset(0, 4),
+            offset:     const Offset(0, 6),
+          ),
+          BoxShadow(
+            color:      AppColors.primaryLight.withValues(alpha: 0.15),
+            blurRadius: 40,
+            spreadRadius: 4,
+            offset:     const Offset(0, 2),
           ),
         ],
       ),
@@ -369,17 +745,13 @@ class _AddHabitFab extends StatelessWidget {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation:       0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const HabitFormScreen(),
+            fullscreenDialog: true,
+          ),
         ),
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const HabitFormScreen(),
-              fullscreenDialog: true,
-            ),
-          );
-        },
         icon:  const Icon(Icons.add_rounded, size: 22),
         label: const Text(
           'Nuevo hábito',
@@ -391,11 +763,38 @@ class _AddHabitFab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Estado vacío
+// Estado vacío con animación de pulso
 // ---------------------------------------------------------------------------
 
-class _EmptyHabitsView extends StatelessWidget {
+class _EmptyHabitsView extends StatefulWidget {
   const _EmptyHabitsView();
+
+  @override
+  State<_EmptyHabitsView> createState() => _EmptyHabitsViewState();
+}
+
+class _EmptyHabitsViewState extends State<_EmptyHabitsView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync:    this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 0.9, end: 1.1).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -404,52 +803,55 @@ class _EmptyHabitsView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icono con glow verde
-          Container(
-            width:  90,
-            height: 90,
-            decoration: BoxDecoration(
-              color:        AppColors.primary.withValues(alpha: 0.08),
-              shape:        BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.2),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color:      AppColors.primary.withValues(alpha: 0.15),
-                  blurRadius: 24,
-                  spreadRadius: 4,
+          // Icono pulsante con glow
+          ScaleTransition(
+            scale: _pulse,
+            child: Container(
+              width:  96,
+              height: 96,
+              decoration: BoxDecoration(
+                color:  AppColors.primary.withValues(alpha: 0.08),
+                shape:  BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
-              ],
-            ),
-            child: const Icon(
-              Icons.add_task_rounded,
-              color: AppColors.primary,
-              size:  42,
+                boxShadow: [
+                  BoxShadow(
+                    color:      AppColors.primary.withValues(alpha: 0.2),
+                    blurRadius: 30,
+                    spreadRadius: 6,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.add_task_rounded,
+                color: AppColors.primary,
+                size:  44,
+              ),
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
           const Text(
             'Sin hábitos todavía',
             style: TextStyle(
               color:      AppColors.textPrimary,
-              fontSize:   20,
+              fontSize:   22,
               fontWeight: FontWeight.w700,
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
           const Text(
             'Crea tu primer hábito y empieza\na construir tu mejor versión.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color:   AppColors.textSecondary,
+              color:    AppColors.textSecondary,
               fontSize: 14,
-              height:   1.5,
+              height:   1.6,
             ),
           ),
         ],
@@ -474,16 +876,13 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.wifi_off_rounded,
-              color: AppColors.textSecondary,
-              size:  48,
-            ),
+            const Icon(Icons.wifi_off_rounded,
+                color: AppColors.textSecondary, size: 48),
             const SizedBox(height: 16),
             const Text(
               'No se pudieron cargar los hábitos',
               style: TextStyle(
-                color:      AppColors.textPrimary,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w600,
                 fontSize:   16,
               ),
