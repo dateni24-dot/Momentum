@@ -3,17 +3,14 @@ import '../../domain/habit_model.dart';
 import '../../../../core/theme/app_colors.dart';
 
 /// Tarjeta que representa un hábito en la lista.
-/// El color es determinista: palette[habitId % palette.length]
+/// Las acciones (editar / eliminar) se realizan deslizando la tarjeta
+/// en SwipeableHabitCard. Esta tarjeta es solo presentacional.
 class HabitCard extends StatelessWidget {
   final HabitModel habit;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   const HabitCard({
     super.key,
     required this.habit,
-    required this.onEdit,
-    required this.onDelete,
   });
 
   @override
@@ -21,7 +18,6 @@ class HabitCard extends StatelessWidget {
     final habitColor = HabitColors.forHabit(habit.habitId);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -78,7 +74,7 @@ class HabitCard extends StatelessWidget {
             // Nombre + descripción + badge duración
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.fromLTRB(0, 14, 16, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment:  MainAxisAlignment.center,
@@ -133,59 +129,7 @@ class HabitCard extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Acciones: editar y eliminar
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _ActionButton(
-                    icon:    Icons.edit_outlined,
-                    color:   AppColors.grey,
-                    onTap:   onEdit,
-                    tooltip: 'Editar',
-                  ),
-                  const SizedBox(height: 4),
-                  _ActionButton(
-                    icon:    Icons.delete_outline_rounded,
-                    color:   AppColors.error,
-                    onTap:   onDelete,
-                    tooltip: 'Eliminar',
-                  ),
-                ],
-              ),
-            ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  const _ActionButton({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, color: color, size: 18),
         ),
       ),
     );

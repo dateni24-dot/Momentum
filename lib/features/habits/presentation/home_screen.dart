@@ -4,9 +4,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/habit_model.dart';
 import '../domain/habit_notifier.dart';
 import 'habit_form_screen.dart';
-import 'widgets/habit_card.dart';
+import 'widgets/swipeable_habit_card.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/domain/auth_notifier.dart';
+import '../../profile/presentation/profile_screen.dart';
 
 // ---------------------------------------------------------------------------
 // HomeScreen principal — gestiona la animación de bienvenida y el tab actual
@@ -55,19 +56,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _onTabTapped(int index) {
-    if (index == 0) {
-      setState(() => _currentTab = 0);
+    if (index == 0 || index == 1) {
+      setState(() => _currentTab = index);
       return;
     }
-    final labels = ['', 'Perfil', 'Tienda'];
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
+        content: const Row(
           children: [
-            const Icon(Icons.construction_rounded,
+            Icon(Icons.construction_rounded,
                 color: AppColors.primary, size: 18),
-            const SizedBox(width: 10),
-            Text('${labels[index]} — Próximamente'),
+            SizedBox(width: 10),
+            Text('Tienda — Próximamente'),
           ],
         ),
         backgroundColor: AppColors.surfaceVariant,
@@ -90,22 +90,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Contenido principal
+          // Contenido según tab activo
           SafeArea(
-            child: habitsAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-              error: (_, __) => _ErrorView(
-                onRetry: () =>
-                    ref.read(habitsNotifierProvider.notifier).refresh(),
-              ),
-              data: (state) => _HomeContent(state: state),
-            ),
+            child: _currentTab == 1
+                ? const ProfileScreen()
+                : habitsAsync.when(
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
+                    error: (_, __) => _ErrorView(
+                      onRetry: () =>
+                          ref.read(habitsNotifierProvider.notifier).refresh(),
+                    ),
+                    data: (state) => _HomeContent(state: state),
+                  ),
           ),
 
-          // Splash de bienvenida (overlay sobre todo)
-          if (_showWelcome)
+          // Splash de bienvenida (solo en tab hábitos)
+          if (_showWelcome && _currentTab == 0)
             FadeTransition(
               opacity: _welcomeFade,
               child: _WelcomeSplash(username: username),
@@ -321,8 +323,9 @@ class _HomeContent extends ConsumerWidget {
                           offset: Offset(0, 24 * (1 - value)),
                           child:  Opacity(opacity: value, child: child),
                         ),
-                        child: HabitCard(
+                        child: SwipeableHabitCard(
                           habit:    habit,
+                          isFirst:  index == 0,
                           onEdit:   () => _openForm(context, habit: habit),
                           onDelete: () => _confirmDelete(context, ref, habit),
                         ),
