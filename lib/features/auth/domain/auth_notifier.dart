@@ -30,6 +30,7 @@ class AuthNotifier extends AsyncNotifier<void> {
   }) async {
     state = const AsyncLoading();
     try {
+      // Se intenta iniciar sesión con email y password, asegurándose de eliminar espacios en blanco
       await _client.auth.signInWithPassword(
         email: email.trim(),
         password: password,
@@ -37,10 +38,12 @@ class AuthNotifier extends AsyncNotifier<void> {
       state = const AsyncData(null);
       return const AuthSuccess();
     } on AuthException catch (e) {
+      // Si ocurre un error de autenticación, se mapea el mensaje y se devuelve un AuthFailure
       state = const AsyncData(null);
       debugPrint('[Auth] signIn AuthException: ${e.message}');
       return AuthFailure(_mapAuthError(e.message));
     } catch (e) {
+      // Para cualquier otro error inesperado, se captura y se devuelve un mensaje genérico
       state = const AsyncData(null);
       debugPrint('[Auth] signIn error: $e');
       return AuthFailure('Error inesperado: $e');
@@ -52,30 +55,37 @@ class AuthNotifier extends AsyncNotifier<void> {
     required String password,
     required String username,
   }) async {
+    // Para el registro, también se envía el username como dato adicional
     state = const AsyncLoading();
     try {
       await _client.auth.signUp(
+        // Supabase maneja el registro con email y password, y permite enviar datos adicionales
         email: email.trim(),
         password: password,
         data: {'username': username.trim()},
       );
+      // El registro exitoso no inicia sesión automáticamente, por lo que no se espera un usuario activo aquí
       state = const AsyncData(null);
       return const AuthSuccess();
     } on AuthException catch (e) {
+      // Si ocurre un error de autenticación, se mapea el mensaje y se devuelve un AuthFailure
       state = const AsyncData(null);
       debugPrint('[Auth] signUp AuthException: ${e.message}');
       return AuthFailure(_mapAuthError(e.message));
     } catch (e) {
+      // Para cualquier otro error inesperado, se captura y se devuelve un mensaje genérico
       state = const AsyncData(null);
       debugPrint('[Auth] signUp error: $e');
       return AuthFailure('Error inesperado: $e');
     }
   }
 
+  // Cierra la sesión del usuario
   Future<void> signOut() async {
     await _client.auth.signOut();
   }
 
+  // Mapea mensajes de error de Supabase a mensajes amigables para el usuario
   String _mapAuthError(String message) {
     final msg = message.toLowerCase();
     if (msg.contains('invalid login credentials') ||

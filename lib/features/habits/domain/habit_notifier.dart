@@ -104,12 +104,14 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
     state = AsyncValue.data(current.copyWith(isLoading: true));
 
     try {
-      final repo = ref.read(habitRepositoryProvider);
-      await repo.deleteHabit(habitId);
-      final list = current.habits.where((h) => h.habitId != habitId).toList();
-      state = AsyncValue.data(HabitsState(habits: list));
+      
+      final repo = ref.read(habitRepositoryProvider); // Obtener el repositorio para interactuar con Supabase
+      await repo.deleteHabit(habitId); // Eliminar el hábito del estado local
+      final list = current.habits.where((h) => h.habitId != habitId).toList(); // Actualizar la lista de hábitos sin el hábito eliminado
+      state = AsyncValue.data(HabitsState(habits: list)); // Actualizar el estado con la nueva lista de hábitos
       return HabitSuccess();
     } on PostgrestException catch (e) {
+      // Si ocurre un error al eliminar el hábito, se mantiene el estado actual y se muestra un mensaje de error
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));
       return HabitFailure('Error al eliminar el hábito. Inténtalo de nuevo.');
     } catch (_) {
