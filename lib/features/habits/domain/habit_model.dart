@@ -44,6 +44,9 @@ class HabitModel {
   /// Duración objetivo en minutos (columna `time` int2)
   final int time;
   final DateTime createdAt;
+  /// Campos de user_habit
+  final bool completed;
+  final DateTime? startedAt;
 
   const HabitModel({
     required this.habitId,
@@ -51,34 +54,40 @@ class HabitModel {
     this.habitDescript,
     required this.time,
     required this.createdAt,
+    this.completed = false,
+    this.startedAt,
   });
 
   /// Construye un HabitModel desde una fila de Supabase
   factory HabitModel.fromMap(Map<String, dynamic> map) {
     return HabitModel(
-      habitId:      map['habit_id'] as int,
-      habitName:    map['habit_name'] as String,
+      habitId:       map['habit_id'] as int,
+      habitName:     map['habit_name'] as String,
       habitDescript: map['habit_descript'] as String?,
-      time:         map['time'] as int,
-      createdAt:    DateTime.parse(map['created_at'] as String),
+      time:          map['time'] as int,
+      createdAt:     DateTime.parse(map['created_at'] as String),
+      completed:     map['completed'] as bool? ?? false,
+      startedAt:     map['started_at'] != null
+          ? DateTime.parse(map['started_at'] as String)
+          : null,
     );
   }
 
   /// Map para insertar en la tabla `habit`
   Map<String, dynamic> toInsertMap() {
     return {
-      'habit_name':   habitName,
+      'habit_name':     habitName,
       'habit_descript': habitDescript,
-      'time':         time,
+      'time':           time,
     };
   }
 
   /// Map para actualizar en la tabla `habit`
   Map<String, dynamic> toUpdateMap() {
     return {
-      'habit_name':   habitName,
+      'habit_name':     habitName,
       'habit_descript': habitDescript,
-      'time':         time,
+      'time':           time,
     };
   }
 
@@ -86,6 +95,8 @@ class HabitModel {
     String? habitName,
     String? habitDescript,
     int? time,
+    bool? completed,
+    DateTime? startedAt,
   }) {
     return HabitModel(
       habitId:       habitId,
@@ -93,6 +104,28 @@ class HabitModel {
       habitDescript: habitDescript  ?? this.habitDescript,
       time:          time           ?? this.time,
       createdAt:     createdAt,
+      completed:     completed      ?? this.completed,
+      startedAt:     startedAt      ?? this.startedAt,
     );
+  }
+
+  /// El temporizador ha arrancado y aún no ha terminado
+  bool get isInProgress {
+    if (completed || startedAt == null) return false;
+    return DateTime.now().isBefore(startedAt!.add(Duration(minutes: time)));
+  }
+
+  /// El temporizador ha terminado y se puede completar el hábito
+  bool get isReadyToComplete {
+    if (completed || startedAt == null) return false;
+    return DateTime.now().isAfter(startedAt!.add(Duration(minutes: time)));
+  }
+
+  /// Tiempo restante del temporizador (null si no ha arrancado)
+  Duration? get remainingTime {
+    if (startedAt == null || completed) return null;
+    final end = startedAt!.add(Duration(minutes: time));
+    final remaining = end.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
   }
 }

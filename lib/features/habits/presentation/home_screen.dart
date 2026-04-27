@@ -519,6 +519,7 @@ class _HomeHeader extends ConsumerWidget {
               ),
             ],
           ),
+          //Text(user_avatar ?? 'no hay', style: const TextStyle(fontSize: 20)), // Para evitar overflow si no hay avatar
 
           const SizedBox(height: 20),
 

@@ -119,6 +119,57 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
       return HabitFailure('Error inesperado. Inténtalo de nuevo.');
     }
   }
+
+  /// Inicia el temporizador del hábito. Guarda started_at en Supabase
+  /// para que el progreso persista aunque la app se cierre.
+  Future<HabitResult> startCooldownHabit(int habitId) async {
+    final current = state.valueOrNull ?? const HabitsState();
+    state = AsyncValue.data(current.copyWith(isLoading: true));
+
+    try {
+      final repo = ref.read(habitRepositoryProvider);
+      final updated = await repo.startCooldownHabit(habitId);
+      final list = current.habits
+          .map((h) => h.habitId == habitId ? updated : h)
+          .toList();
+      state = AsyncValue.data(HabitsState(habits: list));
+      return HabitSuccess();
+    } on PostgrestException catch (e) {
+      state = AsyncValue.data(current.copyWith(errorMessage: e.message));
+      return HabitFailure('Error al iniciar el hábito. Inténtalo de nuevo.');
+    } catch (_) {
+      state = AsyncValue.data(current);
+      return HabitFailure('Error inesperado. Inténtalo de nuevo.');
+    }
+  }
+
+  /// Completa el hábito. Solo debe llamarse cuando habit.isReadyToComplete == true.
+  Future<HabitResult> completeHabit(int habitId) async {
+    final current = state.valueOrNull ?? const HabitsState();
+
+    final habit = current.habits.firstWhere((h) => h.habitId == habitId);
+    if (!habit.isReadyToComplete) {
+      return HabitFailure('El temporizador aún no ha terminado.');
+    }
+
+    state = AsyncValue.data(current.copyWith(isLoading: true));
+
+    try {
+      final repo = ref.read(habitRepositoryProvider);
+      final updated = await repo.completeHabit(habitId);
+      final list = current.habits
+          .map((h) => h.habitId == habitId ? updated : h)
+          .toList();
+      state = AsyncValue.data(HabitsState(habits: list));
+      return HabitSuccess();
+    } on PostgrestException catch (e) {
+      state = AsyncValue.data(current.copyWith(errorMessage: e.message));
+      return HabitFailure('Error al completar el hábito. Inténtalo de nuevo.');
+    } catch (_) {
+      state = AsyncValue.data(current);
+      return HabitFailure('Error inesperado. Inténtalo de nuevo.');
+    }
+  }
 }
 
 final habitsNotifierProvider =

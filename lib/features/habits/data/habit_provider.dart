@@ -14,23 +14,24 @@ class HabitRepository {
 
   String? get _userId => _client.auth.currentUser?.id;
 
-  /// Devuelve los hábitos del usuario actual usando el JOIN Supabase:
-  /// user_habit → habit (relación anidada)
+  /// Devuelve los hábitos del usuario con estado de timer (completed, started_at)
   Future<List<HabitModel>> fetchHabits() async {
     final userId = _userId;
     if (userId == null) return [];
 
-    // Supabase permite hacer SELECT con relaciones anidadas:
-    // from user_habit, select habit(*) donde user_id = userId
     final data = await _client
         .from(AppConstants.tableUserHabits)
-        .select('${AppConstants.tableHabits}(*)')
+        .select('completed, started_at, ${AppConstants.tableHabits}(*)')
         .eq('user_id', userId)
         .order('created_at', referencedTable: AppConstants.tableHabits,
             ascending: true);
 
     return (data as List<dynamic>).map((row) {
-      final habitMap = row[AppConstants.tableHabits] as Map<String, dynamic>;
+      final habitMap = {
+        ...row[AppConstants.tableHabits] as Map<String, dynamic>,
+        'completed':  row['completed'],
+        'started_at': row['started_at'],
+      };
       return HabitModel.fromMap(habitMap);
     }).toList();
   }
@@ -39,7 +40,6 @@ class HabitRepository {
   Future<HabitModel> createHabit(HabitModel habit) async {
     final userId = _userId!;
 
-    // 1. Insertar en habit
     final habitData = await _client
         .from(AppConstants.tableHabits)
         .insert(habit.toInsertMap())
@@ -48,7 +48,6 @@ class HabitRepository {
 
     final created = HabitModel.fromMap(habitData);
 
-    // 2. Vincular con el usuario
     await _client.from(AppConstants.tableUserHabits).insert({
       'user_id':  userId,
       'habit_id': created.habitId,
@@ -73,14 +72,12 @@ class HabitRepository {
   Future<void> deleteHabit(int habitId) async {
     final userId = _userId!;
 
-    // 1. Eliminar la vinculación usuario-hábito
     await _client
         .from(AppConstants.tableUserHabits)
         .delete()
         .eq('habit_id', habitId)
         .eq('user_id', userId);
 
-    // 2. Eliminar el hábito (solo si ya no lo tiene ningún otro usuario)
     final remaining = await _client
         .from(AppConstants.tableUserHabits)
         .select()
@@ -92,6 +89,59 @@ class HabitRepository {
           .delete()
           .eq('habit_id', habitId);
     }
+  }
+
+  /// Inicia el temporizador del hábito guardando el timestamp actual en Supabase.
+  /// Al reabrir la app se recalcula el tiempo restante desde started_at.
+  Future<HabitModel> startCooldownHabit(int habitId) async {
+    final userId = _userId!;
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    await _client
+        .from(AppConstants.tableUserHabits)
+        .update({'started_at': now, 'completed': false})
+        .eq('habit_id', habitId)
+        .eq('user_id', userId);
+
+    final data = await _client
+        .from(AppConstants.tableUserHabits)
+        .select('completed, started_at, ${AppConstants.tableHabits}(*)')
+        .eq('habit_id', habitId)
+        .eq('user_id', userId)
+        .single();
+
+    final habitMap = {
+      ...data[AppConstants.tableHabits] as Map<String, dynamic>,
+      'completed':  data['completed'],
+      'started_at': data['started_at'],
+    };
+    return HabitModel.fromMap(habitMap);
+  }
+
+  /// Marca el hábito como completado en Supabase.
+  /// Solo debe llamarse cuando habit.isReadyToComplete == true.
+  Future<HabitModel> completeHabit(int habitId) async {
+    final userId = _userId!;
+
+    await _client
+        .from(AppConstants.tableUserHabits)
+        .update({'completed': true})
+        .eq('habit_id', habitId)
+        .eq('user_id', userId);
+
+    final data = await _client
+        .from(AppConstants.tableUserHabits)
+        .select('completed, started_at, ${AppConstants.tableHabits}(*)')
+        .eq('habit_id', habitId)
+        .eq('user_id', userId)
+        .single();
+
+    final habitMap = {
+      ...data[AppConstants.tableHabits] as Map<String, dynamic>,
+      'completed':  data['completed'],
+      'started_at': data['started_at'],
+    };
+    return HabitModel.fromMap(habitMap);
   }
 }
 

@@ -49,6 +49,17 @@ begin
     now(),
     now()
   );
+
+  -- Crear registro inicial en user_avatar
+  insert into public.user_avatar (user_id, avatar_id, avatar_evo_id, created_at, updated_at)
+  values (
+    new.id,
+    1,
+    1,
+    now(),
+    now()
+  );
+
   return new;
 end;
 $$;
@@ -64,6 +75,17 @@ language plpgsql
 as $$
 begin
   new.updated_at = now();
+
+  -- Crear registro inicial en user_avatar
+  insert into public.user_avatar (user_id, avatar_id, avatar_evo_id, created_at, updated_at)
+  values (
+    new.id,
+    1,
+    1,
+    now(),
+    now()
+  );
+
   return new;
 end;
 $$;
