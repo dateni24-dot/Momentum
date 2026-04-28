@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
@@ -140,33 +141,48 @@ class _ProfileHeader extends StatelessWidget {
 
           const SizedBox(height: 28),
 
-          // Avatar con glow
-          Container(
-            width: 150,
-            height: 150,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.surface,
-              border: Border.all(
-                  color: AvatarRegistry.glowColorForKey(profile.evoImg),
-                  width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                  color: AvatarRegistry.glowColorForKey(profile.evoImg)
-                      .withValues(alpha: 0.35),
-                  blurRadius: 30,
-                  spreadRadius: 4,
+          // Avatar con ring de progreso XP alrededor
+          SizedBox(
+            width: 168,
+            height: 168,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Ring de progreso XP (anillo exterior)
+                CustomPaint(
+                  size: const Size(168, 168),
+                  painter: _XpRingPainter(
+                    progress: profile.xpProgress,
+                    color: AvatarRegistry.glowColorForKey(profile.evoImg),
+                  ),
                 ),
-                BoxShadow(
-                  color: AvatarRegistry.glowColorForKey(profile.evoImg)
-                      .withValues(alpha: 0.12),
-                  blurRadius: 60,
-                  spreadRadius: 12,
+                // Avatar circular (interior)
+                Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AvatarRegistry.glowColorForKey(profile.evoImg)
+                            .withValues(alpha: 0.35),
+                        blurRadius: 30,
+                        spreadRadius: 4,
+                      ),
+                      BoxShadow(
+                        color: AvatarRegistry.glowColorForKey(profile.evoImg)
+                            .withValues(alpha: 0.12),
+                        blurRadius: 60,
+                        spreadRadius: 12,
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: AvatarRegistry.forKey(profile.evoImg, size: 150),
+                  ),
                 ),
               ],
-            ),
-            child: ClipOval(
-              child: AvatarRegistry.forKey(profile.evoImg, size: 150),
             ),
           ),
 
@@ -202,6 +218,15 @@ class _ProfileHeader extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Barra horizontal de XP + texto
+          _XpBar(
+            currentXp: profile.currentXp,
+            xpForNextLevel: profile.xpForNextLevel,
+            color: AvatarRegistry.glowColorForKey(profile.evoImg),
           ),
         ],
       ),
@@ -422,6 +447,131 @@ class _SettingItem extends StatelessWidget {
                   color: AppColors.textSecondary, size: 20),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _XpRingPainter — anillo circular de progreso de XP alrededor del avatar
+// ---------------------------------------------------------------------------
+
+class _XpRingPainter extends CustomPainter {
+  final double progress; // 0..1
+  final Color color;
+
+  const _XpRingPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - 3;
+
+    // Anillo de fondo (atenuado)
+    final bgPaint = Paint()
+      ..color = color.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Arco de progreso
+    if (progress > 0) {
+      final progressPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 1.5);
+
+      const startAngle = -math.pi / 2; // arranca arriba
+      final sweepAngle = progress * 2 * math.pi;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_XpRingPainter old) =>
+      old.progress != progress || old.color != color;
+}
+
+// ---------------------------------------------------------------------------
+// _XpBar — barra horizontal de progreso con texto "X / Y XP"
+// ---------------------------------------------------------------------------
+
+class _XpBar extends StatelessWidget {
+  final int currentXp;
+  final int xpForNextLevel;
+  final Color color;
+
+  const _XpBar({
+    required this.currentXp,
+    required this.xpForNextLevel,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = xpForNextLevel <= 0
+        ? 0.0
+        : (currentXp / xpForNextLevel).clamp(0.0, 1.0);
+
+    return SizedBox(
+      width: 220,
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Stack(
+              children: [
+                // Fondo
+                Container(
+                  height: 7,
+                  width: double.infinity,
+                  color: AppColors.surfaceVariant,
+                ),
+                // Relleno con gradient + glow
+                FractionallySizedBox(
+                  widthFactor: progress,
+                  child: Container(
+                    height: 7,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          color,
+                          color.withValues(alpha: 0.7),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.5),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$currentXp / $xpForNextLevel XP',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
       ),
     );
   }

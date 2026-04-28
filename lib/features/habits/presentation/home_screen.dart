@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +9,8 @@ import 'widgets/swipeable_habit_card.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/domain/auth_notifier.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../profile/data/profile_provider.dart';
+import '../../profile/presentation/widgets/avatar_registry.dart';
 
 // ---------------------------------------------------------------------------
 // HomeScreen principal — gestiona la animación de bienvenida y el tab actual
@@ -456,40 +459,63 @@ class _HomeHeader extends ConsumerWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Avatar placeholder con inicial
-              Container(
-                width:  68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end:   Alignment.bottomRight,
-                    colors: [AppColors.primaryLight, AppColors.primaryDark],
+              // Avatar con ring de XP
+              Builder(builder: (_) {
+                final profile = ref.watch(userProfileProvider).valueOrNull;
+                final glowColor = profile != null
+                    ? AvatarRegistry.glowColorForKey(profile.evoImg)
+                    : AppColors.primary;
+                return SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (profile != null)
+                        CustomPaint(
+                          size: const Size(80, 80),
+                          painter: _HomeXpRingPainter(
+                            progress: profile.xpProgress,
+                            color: glowColor,
+                          ),
+                        ),
+                      Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.surface,
+                          border: Border.all(
+                            color: glowColor.withValues(alpha: 0.6),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: glowColor.withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: profile != null
+                              ? AvatarRegistry.forKey(profile.evoImg, size: 68)
+                              : Center(
+                                  child: Text(
+                                    initial,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.6),
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color:      AppColors.primary.withValues(alpha: 0.35),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      color:      Colors.white,
-                      fontSize:   28,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
+                );
+              }),
 
               const SizedBox(width: 16),
 
@@ -862,6 +888,51 @@ class _EmptyHabitsViewState extends State<_EmptyHabitsView>
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// XP ring painter para el header del home
+// ---------------------------------------------------------------------------
+
+class _HomeXpRingPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  const _HomeXpRingPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - 3;
+
+    final bgPaint = Paint()
+      ..color = color.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    if (progress > 0) {
+      final progressPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 1.5);
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        progress * 2 * math.pi,
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HomeXpRingPainter old) =>
+      old.progress != progress || old.color != color;
 }
 
 // ---------------------------------------------------------------------------

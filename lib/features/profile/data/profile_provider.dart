@@ -8,6 +8,9 @@ class UserProfile {
   final int coins;
   final String evoImg;
   final String avatarName;
+  final int currentXp;
+  final int level;
+  final int maxXp;
 
   const UserProfile({
     required this.id,
@@ -15,21 +18,35 @@ class UserProfile {
     required this.coins,
     required this.evoImg,
     required this.avatarName,
+    required this.currentXp,
+    required this.level,
+    required this.maxXp,
   });
 
+  int get xpForNextLevel => maxXp;
+
+  double get xpProgress {
+    if (maxXp <= 0) return 0;
+    return (currentXp / maxXp).clamp(0.0, 1.0);
+  }
+
   factory UserProfile.fromMap(Map<String, dynamic> map) {
-    // Valores por defecto si no hay avatar asignado aún
     var evoImg = 'stickman_lv1';
     var avatarName = 'Stickman';
+    var currentXp = 0;
+    var level = 1;
+    var maxXp = 200;
 
-    // JOIN: user -> user_avatar -> avatar_evo / avatars
     final userAvatarList = map[AppConstants.tableUserAvatar];
     if (userAvatarList is List && userAvatarList.isNotEmpty) {
       final ua = userAvatarList.first as Map<String, dynamic>;
+      currentXp = (ua['current_xp'] as num?)?.toInt() ?? 0;
 
       final evo = ua[AppConstants.tableAvatarEvo];
       if (evo is Map) {
         evoImg = evo['evo_img'] as String? ?? evoImg;
+        level = (evo['level'] as num?)?.toInt() ?? 1;
+        maxXp = (evo['max_xp'] as num?)?.toInt() ?? 200;
       }
 
       final av = ua[AppConstants.tableAvatars];
@@ -44,6 +61,9 @@ class UserProfile {
       coins: (map['coins'] as int?) ?? 0,
       evoImg: evoImg,
       avatarName: avatarName,
+      currentXp: currentXp,
+      level: level,
+      maxXp: maxXp,
     );
   }
 }
@@ -53,7 +73,7 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final userId = client.auth.currentUser?.id;
   if (userId == null) return null;
 
-  // Cargamos el perfil con el avatar y su evolución en una sola consulta
+  // Cargamos perfil + avatar + XP + nivel en una sola consulta
   final data = await client
       .from(AppConstants.tableUser)
       .select('''
@@ -61,7 +81,8 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
         username,
         coins,
         user_avatar(
-          avatar_evo(evo_img),
+          current_xp,
+          avatar_evo(evo_img, level, max_xp),
           avatars(avatar_name)
         )
       ''')

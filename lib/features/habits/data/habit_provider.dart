@@ -118,6 +118,32 @@ class HabitRepository {
     return HabitModel.fromMap(habitMap);
   }
 
+  /// Cancela un hábito iniciado: resetea started_at a NULL y completed a false.
+  /// No otorga XP. Útil cuando el usuario inicia un hábito por error.
+  Future<HabitModel> cancelHabit(int habitId) async {
+    final userId = _userId!;
+
+    await _client
+        .from(AppConstants.tableUserHabits)
+        .update({'started_at': null, 'completed': false})
+        .eq('habit_id', habitId)
+        .eq('user_id', userId);
+
+    final data = await _client
+        .from(AppConstants.tableUserHabits)
+        .select('completed, started_at, ${AppConstants.tableHabits}(*)')
+        .eq('habit_id', habitId)
+        .eq('user_id', userId)
+        .single();
+
+    final habitMap = {
+      ...data[AppConstants.tableHabits] as Map<String, dynamic>,
+      'completed':  data['completed'],
+      'started_at': data['started_at'],
+    };
+    return HabitModel.fromMap(habitMap);
+  }
+
   /// Marca el hábito como completado y añade XP al avatar activo del usuario.
   /// [xpReward] = habit.time * 2 (ej: 30 min → 60 XP).
   /// Solo debe llamarse cuando habit.isReadyToComplete == true.
