@@ -1,9 +1,16 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   AppConstants._();
 
   // App info
   static const String appName = 'Momentum';
   static const String appVersion = '1.0.0';
+
+  // ── Debug ──────────────────────────────────────────────────────────────
+  // En modo debug los minutos se tratan como segundos para testear rápido.
+  // En release esto es siempre false.
+  static const bool debugFastTimer = kDebugMode;
 
   // Supabase tables (nombres exactos del esquema real)
   static const String tableUser            = 'user';

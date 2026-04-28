@@ -217,26 +217,122 @@ class _HabitActionsState extends ConsumerState<_HabitActions> {
         .read(habitsNotifierProvider.notifier)
         .completeHabit(widget.habit.habitId);
     if (!mounted) return;
-    if (result is HabitSuccess) {
-      final xp = widget.habit.time * 2;
+    if (result is HabitCompleted) {
+      final hasMultiplier = result.multiplier > 1.0;
+      final multiplierStr = result.multiplier == 2.0
+          ? '×2.0'
+          : result.multiplier == 1.5
+              ? '×1.5'
+              : '×1.25';
+
+      // Snackbar diferente si hay multiplicador activo
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               const Icon(Icons.bolt_rounded, color: Colors.amber, size: 18),
               const SizedBox(width: 8),
-              Text('+$xp XP para tu avatar'),
+              Text('+${result.xpAwarded} XP'),
+              if (hasMultiplier) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF5722).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFFF5722).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.local_fire_department_rounded,
+                          color: Color(0xFFFF5722), size: 11),
+                      const SizedBox(width: 3),
+                      Text(
+                        multiplierStr,
+                        style: const TextStyle(
+                          color: Color(0xFFFF5722),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const Spacer(),
+              Text(
+                '🔥 ${result.streakDays} día${result.streakDays == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  color: Color(0xFFFF8A65),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           backgroundColor: AppColors.surfaceVariant,
           behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: result.isMilestone ? 4 : 3),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12)),
         ),
       );
+
+      // Si es un hito (7, 14 o 30 días), mostrar celebración extra
+      if (result.isMilestone) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Text('🏆', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '¡${result.streakDays} días de racha!',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        _milestoneMessage(result.streakDays),
+                        style: const TextStyle(
+                          color: Color(0xFFFFCC80),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4A148C),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     } else {
       _toast(result);
     }
+  }
+
+  String _milestoneMessage(int streak) {
+    if (streak >= 30) return 'Multiplicador máximo ×2.0 activo 🚀';
+    if (streak >= 14) return 'Multiplicador ×1.5 activo en tu XP';
+    return 'Multiplicador ×1.25 activo en tu XP';
   }
 
   void _toast(HabitResult result) {

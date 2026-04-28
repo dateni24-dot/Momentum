@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/app_constants.dart';
 
 /// Opciones de duración en minutos para un hábito
 class HabitDuration {
@@ -109,22 +110,26 @@ class HabitModel {
     );
   }
 
+  Duration get _habitDuration => AppConstants.debugFastTimer
+      ? Duration(seconds: time)
+      : Duration(minutes: time);
+
   /// El temporizador ha arrancado y aún no ha terminado
   bool get isInProgress {
     if (completed || startedAt == null) return false;
-    return DateTime.now().isBefore(startedAt!.add(Duration(minutes: time)));
+    return DateTime.now().isBefore(startedAt!.add(_habitDuration));
   }
 
   /// El temporizador ha terminado y se puede completar el hábito
   bool get isReadyToComplete {
     if (completed || startedAt == null) return false;
-    return DateTime.now().isAfter(startedAt!.add(Duration(minutes: time)));
+    return DateTime.now().isAfter(startedAt!.add(_habitDuration));
   }
 
   /// Tiempo restante del temporizador (null si no ha arrancado)
   Duration? get remainingTime {
     if (startedAt == null || completed) return null;
-    final end = startedAt!.add(Duration(minutes: time));
+    final end = startedAt!.add(_habitDuration);
     final remaining = end.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
   }

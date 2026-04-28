@@ -36,6 +36,19 @@ class HabitFailure extends HabitResult {
   final String message;
   HabitFailure(this.message);
 }
+class HabitCompleted extends HabitResult {
+  final int xpAwarded;
+  final double multiplier;
+  final int streakDays;
+  final bool isMilestone;
+
+  HabitCompleted({
+    required this.xpAwarded,
+    required this.multiplier,
+    required this.streakDays,
+    required this.isMilestone,
+  });
+}
 
 /// Notifier que gestiona el estado y las operaciones CRUD de hábitos
 class HabitsNotifier extends AsyncNotifier<HabitsState> {
@@ -167,7 +180,7 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
     }
   }
 
-  /// Completa el hábito y concede XP al avatar activo (time * 2 XP).
+  /// Completa el hábito, actualiza la racha y concede XP con multiplicador.
   /// Solo ejecuta si habit.isReadyToComplete == true.
   Future<HabitResult> completeHabit(int habitId) async {
     final current = state.valueOrNull ?? const HabitsState();
@@ -177,18 +190,23 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
       return HabitFailure('El temporizador aún no ha terminado.');
     }
 
-    final xpReward = habit.time * 2;
+    final baseXp = habit.time * 2;
     state = AsyncValue.data(current.copyWith(isLoading: true));
 
     try {
       final repo = ref.read(habitRepositoryProvider);
-      final updated = await repo.completeHabit(habitId, xpReward);
+      final result = await repo.completeHabit(habitId, baseXp);
       final list = current.habits
-          .map((h) => h.habitId == habitId ? updated : h)
+          .map((h) => h.habitId == habitId ? result.habit : h)
           .toList();
       state = AsyncValue.data(HabitsState(habits: list));
       ref.invalidate(userProfileProvider);
-      return HabitSuccess();
+      return HabitCompleted(
+        xpAwarded:   result.xpAwarded,
+        multiplier:  result.multiplier,
+        streakDays:  result.streakDays,
+        isMilestone: result.isMilestone,
+      );
     } on PostgrestException catch (e) {
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));
       return HabitFailure('Error al completar el hábito. Inténtalo de nuevo.');

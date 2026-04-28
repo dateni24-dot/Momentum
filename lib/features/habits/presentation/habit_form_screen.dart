@@ -75,6 +75,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
 
     switch (result) {
       case HabitSuccess():
+      case HabitCompleted():
         Navigator.of(context).pop(true);
       case HabitFailure(:final message):
         ScaffoldMessenger.of(context).showSnackBar(

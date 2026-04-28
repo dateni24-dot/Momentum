@@ -11,6 +11,8 @@ class UserProfile {
   final int currentXp;
   final int level;
   final int maxXp;
+  final int streakDays;
+  final int streakRecord;
 
   const UserProfile({
     required this.id,
@@ -21,6 +23,8 @@ class UserProfile {
     required this.currentXp,
     required this.level,
     required this.maxXp,
+    this.streakDays   = 0,
+    this.streakRecord = 0,
   });
 
   int get xpForNextLevel => maxXp;
@@ -56,14 +60,16 @@ class UserProfile {
     }
 
     return UserProfile(
-      id: map['id'] as String,
-      username: map['username'] as String? ?? 'Usuario',
-      coins: (map['coins'] as int?) ?? 0,
-      evoImg: evoImg,
-      avatarName: avatarName,
-      currentXp: currentXp,
-      level: level,
-      maxXp: maxXp,
+      id:           map['id'] as String,
+      username:     map['username'] as String? ?? 'Usuario',
+      coins:        (map['coins'] as int?) ?? 0,
+      evoImg:       evoImg,
+      avatarName:   avatarName,
+      currentXp:    currentXp,
+      level:        level,
+      maxXp:        maxXp,
+      streakDays:   (map['streak_days']   as int?) ?? 0,
+      streakRecord: (map['streak_record'] as int?) ?? 0,
     );
   }
 }
@@ -80,6 +86,8 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
         id,
         username,
         coins,
+        streak_days,
+        streak_record,
         user_avatar(
           current_xp,
           avatar_evo(evo_img, level, max_xp),

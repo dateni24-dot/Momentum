@@ -144,10 +144,10 @@ class HabitRepository {
     return HabitModel.fromMap(habitMap);
   }
 
-  /// Marca el hábito como completado y añade XP al avatar activo del usuario.
-  /// [xpReward] = habit.time * 2 (ej: 30 min → 60 XP).
+  /// Marca el hábito como completado, actualiza la racha y otorga XP con multiplicador.
+  /// [baseXp] = habit.time * 2 (ej: 30 min → 60 XP base).
   /// Solo debe llamarse cuando habit.isReadyToComplete == true.
-  Future<HabitModel> completeHabit(int habitId, int xpReward) async {
+  Future<CompleteHabitResult> completeHabit(int habitId, int baseXp) async {
     final userId = _userId!;
 
     await _client
@@ -156,10 +156,10 @@ class HabitRepository {
         .eq('habit_id', habitId)
         .eq('user_id', userId);
 
-    await _client.rpc('increment_avatar_xp', params: {
+    final rpcResult = await _client.rpc('complete_habit_with_streak', params: {
       'p_user_id': userId,
-      'p_amount':  xpReward,
-    });
+      'p_base_xp': baseXp,
+    }) as Map<String, dynamic>;
 
     final data = await _client
         .from(AppConstants.tableUserHabits)
@@ -173,8 +173,32 @@ class HabitRepository {
       'completed':  data['completed'],
       'started_at': data['started_at'],
     };
-    return HabitModel.fromMap(habitMap);
+
+    return CompleteHabitResult(
+      habit:       HabitModel.fromMap(habitMap),
+      xpAwarded:   (rpcResult['xp_awarded']  as num).toInt(),
+      multiplier:  (rpcResult['multiplier']   as num).toDouble(),
+      streakDays:  (rpcResult['streak_days']  as num).toInt(),
+      isMilestone: rpcResult['is_milestone']  as bool,
+    );
   }
+}
+
+/// Datos que devuelve completeHabit (hábito actualizado + info de racha)
+class CompleteHabitResult {
+  final HabitModel habit;
+  final int xpAwarded;
+  final double multiplier;
+  final int streakDays;
+  final bool isMilestone;
+
+  const CompleteHabitResult({
+    required this.habit,
+    required this.xpAwarded,
+    required this.multiplier,
+    required this.streakDays,
+    required this.isMilestone,
+  });
 }
 
 /// Provider del repositorio de hábitos
