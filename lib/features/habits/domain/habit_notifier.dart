@@ -36,6 +36,7 @@ class HabitFailure extends HabitResult {
   final String message;
   HabitFailure(this.message);
 }
+// Resultado cuando el hábito se completa exitosamente: incluye XP, racha y multiplicador
 class HabitCompleted extends HabitResult {
   final int xpAwarded;
   final double multiplier;

@@ -110,6 +110,7 @@ class HabitModel {
     );
   }
 
+  // En debug usa segundos en lugar de minutos para testear rápido
   Duration get _habitDuration => AppConstants.debugFastTimer
       ? Duration(seconds: time)
       : Duration(minutes: time);

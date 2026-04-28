@@ -11,8 +11,8 @@ class UserProfile {
   final int currentXp;
   final int level;
   final int maxXp;
-  final int streakDays;
-  final int streakRecord;
+  final int streakDays;   // días consecutivos activos
+  final int streakRecord; // récord histórico de racha
 
   const UserProfile({
     required this.id,
