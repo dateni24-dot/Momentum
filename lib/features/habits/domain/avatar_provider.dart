@@ -7,20 +7,23 @@ class UserAvatar {
   final String avatarName;
   final String avatarEvoId;
   final String avatarEvoLevel;
+  final int currentXp;
 
   const UserAvatar({
     required this.avatarId,
     required this.avatarName,
     required this.avatarEvoId,
     required this.avatarEvoLevel,
+    this.currentXp = 0,
   });
 
   factory UserAvatar.fromJson(Map<String, dynamic> json) {
     return UserAvatar(
-      avatarId: json['avatar_id'].toString(),
-      avatarName: json['avatar_name'] ?? 'Avatar',
-      avatarEvoId: json['avatar_evo_id'].toString(),
+      avatarId:      json['avatar_id'].toString(),
+      avatarName:    json['avatar_name'] ?? 'Avatar',
+      avatarEvoId:   json['avatar_evo_id'].toString(),
       avatarEvoLevel: json['avatar_evo_level'] ?? '1',
+      currentXp:     json['current_xp'] as int? ?? 0,
     );
   }
 }
@@ -38,6 +41,7 @@ final userAvatarProvider = FutureProvider<UserAvatar?>((ref) async {
         .select('''
           avatar_id,
           avatar_evo_id,
+          current_xp,
           avatars!inner(name),
           avatar_evo!inner(level)
         ''')
@@ -45,10 +49,11 @@ final userAvatarProvider = FutureProvider<UserAvatar?>((ref) async {
         .single();
 
     return UserAvatar.fromJson({
-      'avatar_id': response['avatar_id'],
-      'avatar_name': response['avatars']['name'],
-      'avatar_evo_id': response['avatar_evo_id'],
+      'avatar_id':      response['avatar_id'],
+      'avatar_name':    response['avatars']['name'],
+      'avatar_evo_id':  response['avatar_evo_id'],
       'avatar_evo_level': response['avatar_evo']['level'].toString(),
+      'current_xp':     response['current_xp'],
     });
   } catch (e) {
     // Si no hay avatar, devolver valores por defecto

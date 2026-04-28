@@ -143,7 +143,8 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
     }
   }
 
-  /// Completa el hábito. Solo debe llamarse cuando habit.isReadyToComplete == true.
+  /// Completa el hábito y concede XP al avatar activo (time * 2 XP).
+  /// Solo ejecuta si habit.isReadyToComplete == true.
   Future<HabitResult> completeHabit(int habitId) async {
     final current = state.valueOrNull ?? const HabitsState();
 
@@ -152,11 +153,12 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
       return HabitFailure('El temporizador aún no ha terminado.');
     }
 
+    final xpReward = habit.time * 2;
     state = AsyncValue.data(current.copyWith(isLoading: true));
 
     try {
       final repo = ref.read(habitRepositoryProvider);
-      final updated = await repo.completeHabit(habitId);
+      final updated = await repo.completeHabit(habitId, xpReward);
       final list = current.habits
           .map((h) => h.habitId == habitId ? updated : h)
           .toList();

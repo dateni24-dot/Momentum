@@ -118,9 +118,10 @@ class HabitRepository {
     return HabitModel.fromMap(habitMap);
   }
 
-  /// Marca el hábito como completado en Supabase.
+  /// Marca el hábito como completado y añade XP al avatar activo del usuario.
+  /// [xpReward] = habit.time * 2 (ej: 30 min → 60 XP).
   /// Solo debe llamarse cuando habit.isReadyToComplete == true.
-  Future<HabitModel> completeHabit(int habitId) async {
+  Future<HabitModel> completeHabit(int habitId, int xpReward) async {
     final userId = _userId!;
 
     await _client
@@ -128,6 +129,11 @@ class HabitRepository {
         .update({'completed': true})
         .eq('habit_id', habitId)
         .eq('user_id', userId);
+
+    await _client.rpc('increment_avatar_xp', params: {
+      'p_user_id': userId,
+      'p_amount':  xpReward,
+    });
 
     final data = await _client
         .from(AppConstants.tableUserHabits)
