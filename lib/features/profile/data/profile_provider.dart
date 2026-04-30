@@ -41,20 +41,27 @@ class UserProfile {
     var level = 1;
     var maxXp = 200;
 
-    final userAvatarList = map[AppConstants.tableUserAvatar];
-    if (userAvatarList is List && userAvatarList.isNotEmpty) {
-      final ua = userAvatarList.first as Map<String, dynamic>;
+    Map<String, dynamic>? asMap(dynamic v) {
+      if (v is Map) return Map<String, dynamic>.from(v);
+      if (v is List && v.isNotEmpty && v.first is Map) {
+        return Map<String, dynamic>.from(v.first as Map);
+      }
+      return null;
+    }
+
+    final ua = asMap(map[AppConstants.tableUserAvatar]);
+    if (ua != null) {
       currentXp = (ua['current_xp'] as num?)?.toInt() ?? 0;
 
-      final evo = ua[AppConstants.tableAvatarEvo];
-      if (evo is Map) {
+      final evo = asMap(ua[AppConstants.tableAvatarEvo]);
+      if (evo != null) {
         evoImg = evo['evo_img'] as String? ?? evoImg;
-        level = (evo['level'] as num?)?.toInt() ?? 1;
-        maxXp = (evo['max_xp'] as num?)?.toInt() ?? 200;
+        level  = (evo['level']  as num?)?.toInt() ?? 1;
+        maxXp  = (evo['max_xp'] as num?)?.toInt() ?? 200;
       }
 
-      final av = ua[AppConstants.tableAvatars];
-      if (av is Map) {
+      final av = asMap(ua[AppConstants.tableAvatars]);
+      if (av != null) {
         avatarName = av['avatar_name'] as String? ?? avatarName;
       }
     }
@@ -68,8 +75,8 @@ class UserProfile {
       currentXp:    currentXp,
       level:        level,
       maxXp:        maxXp,
-      streakDays:   (map['streak_days']   as int?) ?? 0,
-      streakRecord: (map['streak_record'] as int?) ?? 0,
+      streakDays:   (map['streak_days']   as num?)?.toInt() ?? 0,
+      streakRecord: (map['streak_record'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -79,7 +86,6 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final userId = client.auth.currentUser?.id;
   if (userId == null) return null;
 
-  // Cargamos perfil + avatar + XP + nivel en una sola consulta
   final data = await client
       .from(AppConstants.tableUser)
       .select('''
@@ -90,7 +96,7 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
         streak_record,
         user_avatar(
           current_xp,
-          avatar_evo(evo_img, level, max_xp),
+          avatar_evo!fk_user_avatar_avatar_evo(evo_img, level, max_xp),
           avatars(avatar_name)
         )
       ''')

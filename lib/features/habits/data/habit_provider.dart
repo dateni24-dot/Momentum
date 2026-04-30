@@ -180,6 +180,7 @@ class HabitRepository {
       multiplier:  (rpcResult['multiplier']   as num).toDouble(),
       streakDays:  (rpcResult['streak_days']  as num).toInt(),
       isMilestone: rpcResult['is_milestone']  as bool,
+      leveledUp:   rpcResult['leveled_up']    as bool? ?? false,
     );
   }
 }
@@ -191,6 +192,7 @@ class CompleteHabitResult {
   final double multiplier;
   final int streakDays;
   final bool isMilestone;
+  final bool leveledUp;
 
   const CompleteHabitResult({
     required this.habit,
@@ -198,6 +200,7 @@ class CompleteHabitResult {
     required this.multiplier,
     required this.streakDays,
     required this.isMilestone,
+    required this.leveledUp,
   });
 }
 

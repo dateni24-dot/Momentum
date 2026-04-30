@@ -42,12 +42,14 @@ class HabitCompleted extends HabitResult {
   final double multiplier;
   final int streakDays;
   final bool isMilestone;
+  final bool leveledUp;
 
   HabitCompleted({
     required this.xpAwarded,
     required this.multiplier,
     required this.streakDays,
     required this.isMilestone,
+    required this.leveledUp,
   });
 }
 
@@ -207,6 +209,7 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
         multiplier:  result.multiplier,
         streakDays:  result.streakDays,
         isMilestone: result.isMilestone,
+        leveledUp:   result.leveledUp,
       );
     } on PostgrestException catch (e) {
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));
