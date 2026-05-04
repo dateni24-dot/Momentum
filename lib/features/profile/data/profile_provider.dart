@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../auth/data/auth_provider.dart';
@@ -42,8 +43,15 @@ class UserProfile {
       final ua = userAvatarList.first as Map<String, dynamic>;
       currentXp = (ua['current_xp'] as num?)?.toInt() ?? 0;
 
-      final evo = ua[AppConstants.tableAvatarEvo];
-      if (evo is Map) {
+      final evoData = ua[AppConstants.tableAvatarEvo];
+      Map<String, dynamic>? evo;
+      if (evoData is Map) {
+        evo = evoData as Map<String, dynamic>;
+      } else if (evoData is List && evoData.isNotEmpty) {
+        evo = evoData.first as Map<String, dynamic>;
+      }
+
+      if (evo != null) {
         evoImg = evo['evo_img'] as String? ?? evoImg;
         level = (evo['level'] as num?)?.toInt() ?? 1;
         maxXp = (evo['max_xp'] as num?)?.toInt() ?? 200;
@@ -68,26 +76,70 @@ class UserProfile {
   }
 }
 
-final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) return null;
+class UserProfileNotifier extends AutoDisposeAsyncNotifier<UserProfile?> {
+  @override
+  Future<UserProfile?> build() => _fetch();
 
-  // Cargamos perfil + avatar + XP + nivel en una sola consulta
-  final data = await client
-      .from(AppConstants.tableUser)
-      .select('''
-        id,
-        username,
-        coins,
-        user_avatar(
-          current_xp,
-          avatar_evo(evo_img, level, max_xp),
-          avatars(avatar_name)
-        )
-      ''')
-      .eq('id', userId)
-      .single();
+  Future<UserProfile?> _fetch() async {
+    final client = ref.read(supabaseClientProvider);
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return null;
 
-  return UserProfile.fromMap(data);
-});
+    final userData = await client
+        .from(AppConstants.tableUser)
+        .select('id, username, coins')
+        .eq('id', userId)
+        .single();
+
+    final uaData = await client
+        .from(AppConstants.tableUserAvatar)
+        .select('current_xp, avatar_evo_id, avatar_id')
+        .eq('user_id', userId)
+        .single();
+
+    final avatarEvoId = (uaData['avatar_evo_id'] as num?)?.toInt();
+    final avatarId    = (uaData['avatar_id'] as num?)?.toInt();
+
+    Map<String, dynamic>? evoData;
+    if (avatarEvoId != null) {
+      evoData = await client
+          .from(AppConstants.tableAvatarEvo)
+          .select('evo_img, level, max_xp')
+          .eq('id', avatarEvoId)
+          .maybeSingle();
+    }
+
+    Map<String, dynamic>? avatarData;
+    if (avatarId != null) {
+      avatarData = await client
+          .from(AppConstants.tableAvatars)
+          .select('avatar_name')
+          .eq('avatar_id', avatarId)
+          .maybeSingle();
+    }
+
+    final profile = UserProfile(
+      id:         userData['id'] as String,
+      username:   userData['username'] as String? ?? 'Usuario',
+      coins:      (userData['coins'] as num?)?.toInt() ?? 0,
+      evoImg:     evoData?['evo_img'] as String? ?? 'stickman_lv1',
+      avatarName: avatarData?['avatar_name'] as String? ?? 'Stickman',
+      currentXp:  (uaData['current_xp'] as num?)?.toInt() ?? 0,
+      level:      (evoData?['level'] as num?)?.toInt() ?? 1,
+      maxXp:      (evoData?['max_xp'] as num?)?.toInt() ?? 200,
+    );
+
+    debugPrint('PROFILE: level=${profile.level} xp=${profile.currentXp}/${profile.maxXp} evo=${profile.evoImg}');
+    return profile;
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(_fetch);
+  }
+}
+
+final userProfileProvider =
+    AsyncNotifierProvider.autoDispose<UserProfileNotifier, UserProfile?>(
+  UserProfileNotifier.new,
+);

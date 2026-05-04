@@ -9,11 +9,16 @@ import 'widgets/avatar_registry.dart';
 // ProfileScreen — contenido embebido en el tab "Perfil" del HomeScreen
 // ---------------------------------------------------------------------------
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  @override
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
 
     return profileAsync.when(
