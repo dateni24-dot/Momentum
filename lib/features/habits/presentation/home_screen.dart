@@ -465,55 +465,85 @@ class _HomeHeader extends ConsumerWidget {
                 final glowColor = profile != null
                     ? AvatarRegistry.glowColorForKey(profile.evoImg)
                     : AppColors.primary;
-                return SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (profile != null)
-                        CustomPaint(
-                          size: const Size(80, 80),
-                          painter: _HomeXpRingPainter(
-                            progress: profile.xpProgress,
-                            color: glowColor,
-                          ),
-                        ),
-                      Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.surface,
-                          border: Border.all(
-                            color: glowColor.withValues(alpha: 0.6),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: glowColor.withValues(alpha: 0.35),
-                              blurRadius: 16,
-                              spreadRadius: 2,
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (profile != null)
+                            CustomPaint(
+                              size: const Size(80, 80),
+                              painter: _HomeXpRingPainter(
+                                progress: profile.xpProgress,
+                                color: glowColor,
+                              ),
                             ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child: profile != null
-                              ? AvatarRegistry.forKey(profile.evoImg, size: 68)
-                              : Center(
-                                  child: Text(
-                                    initial,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                          Container(
+                            width: 68,
+                            height: 68,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.surface,
+                              border: Border.all(
+                                color: glowColor.withValues(alpha: 0.6),
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: glowColor.withValues(alpha: 0.35),
+                                  blurRadius: 16,
+                                  spreadRadius: 2,
                                 ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: profile != null
+                                  ? AvatarRegistry.forKey(profile.evoImg, size: 68)
+                                  : Center(
+                                      child: Text(
+                                        initial,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    // Badge de nivel
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: glowColor,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: glowColor.withValues(alpha: 0.45),
+                            blurRadius: 8,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        'Lv. ${profile?.level ?? 1}',
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               }),
 
@@ -564,30 +594,43 @@ class _HomeHeader extends ConsumerWidget {
           // ── Chips de estadísticas rápidas ──
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _StatChip(
-                  icon:  Icons.task_alt_rounded,
-                  label: '$habitCount hábito${habitCount == 1 ? '' : 's'}',
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 10),
-                _StatChip(
-                  icon:  Icons.local_fire_department_rounded,
-                  label: 'Racha: 0 días',
-                  color: const Color(0xFFFF5722),
-                ),
-                const SizedBox(width: 10),
-                _StatChip(
-                  icon:  Icons.monetization_on_rounded,
-                  label: '0 monedas',
-                  color: const Color(0xFFFFC107),
-                ),
-              ],
-            ),
+            child: Builder(builder: (context) {
+              final profile = ref.watch(userProfileProvider).valueOrNull;
+              final streak  = profile?.streakDays ?? 0;
+              return Row(
+                children: [
+                  _StatChip(
+                    icon:  Icons.task_alt_rounded,
+                    label: '$habitCount hábito${habitCount == 1 ? '' : 's'}',
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  _StatChip(
+                    icon:  Icons.local_fire_department_rounded,
+                    label: 'Racha: $streak día${streak == 1 ? '' : 's'}',
+                    color: streak > 0
+                        ? const Color(0xFFFF5722)
+                        : AppColors.textSecondary,
+                    glow: streak >= 7,
+                  ),
+                  const SizedBox(width: 10),
+                  _StatChip(
+                    icon:  Icons.monetization_on_rounded,
+                    label: '${profile?.coins ?? 0} monedas',
+                    color: const Color(0xFFFFC107),
+                  ),
+                ],
+              );
+            }),
           ),
 
-          const SizedBox(height: 20),
+          // ── Barra de progreso hacia el siguiente multiplicador ──
+          Builder(builder: (context) {
+            final profile = ref.watch(userProfileProvider).valueOrNull;
+            final streak  = profile?.streakDays ?? 0;
+            if (streak >= 30) return const SizedBox(height: 20);
+            return _StreakProgressBar(streakDays: streak);
+          }),
         ],
       ),
     );
@@ -606,11 +649,13 @@ class _StatChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final bool glow;
 
   const _StatChip({
     required this.icon,
     required this.label,
     required this.color,
+    this.glow = false,
   });
 
   @override
@@ -621,9 +666,12 @@ class _StatChip extends StatelessWidget {
         color:        color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: color.withValues(alpha: 0.25),
+          color: color.withValues(alpha: glow ? 0.6 : 0.25),
           width: 1,
         ),
+        boxShadow: glow
+            ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 8)]
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -636,6 +684,83 @@ class _StatChip extends StatelessWidget {
               color:      color,
               fontSize:   12,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Barra de progreso de racha hacia el siguiente multiplicador
+// ---------------------------------------------------------------------------
+
+class _StreakProgressBar extends StatelessWidget {
+  final int streakDays;
+  const _StreakProgressBar({required this.streakDays});
+
+  // Datos del siguiente hito según la racha actual
+  ({int nextMilestone, int prevMilestone, double multiplier}) get _nextTarget {
+    if (streakDays < 7)  return (nextMilestone: 7,  prevMilestone: 0,  multiplier: 1.25);
+    if (streakDays < 14) return (nextMilestone: 14, prevMilestone: 7,  multiplier: 1.5);
+                         return (nextMilestone: 30, prevMilestone: 14, multiplier: 2.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (streakDays == 0) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 8),
+        child: Text(
+          '🔥 Completa un hábito hoy para iniciar tu racha',
+          style: TextStyle(
+            color:    AppColors.textSecondary.withValues(alpha: 0.6),
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    final target   = _nextTarget;
+    final range    = target.nextMilestone - target.prevMilestone;
+    final progress = ((streakDays - target.prevMilestone) / range).clamp(0.0, 1.0);
+    final daysLeft = target.nextMilestone - streakDays;
+    final multStr  = target.multiplier == 1.25 ? '×1.25' : target.multiplier == 1.5 ? '×1.5' : '×2.0';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$daysLeft día${daysLeft == 1 ? '' : 's'} para 🔥 $multStr',
+                style: const TextStyle(
+                  color:      AppColors.textSecondary,
+                  fontSize:   11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                '$streakDays / ${target.nextMilestone}',
+                style: TextStyle(
+                  color:    AppColors.textSecondary.withValues(alpha: 0.5),
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value:            progress,
+              minHeight:        4,
+              backgroundColor:  AppColors.border,
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF5722)),
             ),
           ),
         ],

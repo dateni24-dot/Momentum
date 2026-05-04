@@ -1,5 +1,5 @@
 name: momentum_app
-description: "Momentum - Habit tracking app with gamification."
+description: "Momentum app de hábitos"
 publish_to: 'none'
 
 version: 1.0.0+1

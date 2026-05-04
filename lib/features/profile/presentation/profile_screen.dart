@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../stats/presentation/stats_screen.dart';
 import '../data/profile_provider.dart';
 import 'widgets/avatar_registry.dart';
 
@@ -56,10 +57,32 @@ class _ProfileContent extends StatelessWidget {
           // ── Stats row ─────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _StatsRow(coins: profile.coins),
+            child: _StatsRow(
+              coins:  profile.coins,
+              streak: profile.streakDays,
+            ),
           ),
 
           const SizedBox(height: 32),
+
+          // ── Sección actividad ─────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _SectionCard(
+              title: 'Actividad',
+              items: [
+                _SettingItem(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Estadísticas e historial',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StatsScreen()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
 
           // ── Sección cuenta ────────────────────────────────────────────
           Padding(
@@ -245,7 +268,8 @@ class _ProfileHeader extends StatelessWidget {
 
 class _StatsRow extends StatelessWidget {
   final int coins;
-  const _StatsRow({required this.coins});
+  final int streak;
+  const _StatsRow({required this.coins, required this.streak});
 
   @override
   Widget build(BuildContext context) {
@@ -259,10 +283,10 @@ class _StatsRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: _StatCard(
             icon: Icons.local_fire_department_outlined,
-            value: '0',
+            value: '$streak',
             label: 'Racha',
           ),
         ),
@@ -386,12 +410,14 @@ class _SettingItem extends StatelessWidget {
   final String label;
   final bool comingSoon;
   final bool danger;
+  final VoidCallback? onTap;
 
   const _SettingItem({
     required this.icon,
     required this.label,
     this.comingSoon = false,
     this.danger = false,
+    this.onTap,
   });
 
   @override
@@ -399,24 +425,25 @@ class _SettingItem extends StatelessWidget {
     final color = danger ? Colors.redAccent : AppColors.textPrimary;
 
     return InkWell(
-      onTap: comingSoon
-          ? () => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
-                    children: [
-                      Icon(Icons.construction_rounded,
-                          color: AppColors.primary, size: 16),
-                      SizedBox(width: 8),
-                      Text('Próximamente'),
-                    ],
-                  ),
-                  backgroundColor: AppColors.surfaceVariant,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              )
-          : null,
+      onTap: onTap ??
+          (comingSoon
+              ? () => ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Row(
+                        children: [
+                          Icon(Icons.construction_rounded,
+                              color: AppColors.primary, size: 16),
+                          SizedBox(width: 8),
+                          Text('Próximamente'),
+                        ],
+                      ),
+                      backgroundColor: AppColors.surfaceVariant,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  )
+              : null),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),

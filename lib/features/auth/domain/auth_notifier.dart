@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/auth_provider.dart';
+import '../../profile/data/profile_provider.dart';
+import '../../habits/domain/habit_notifier.dart';
 
 /// Resultado de una operación de auth
 sealed class AuthResult {
@@ -35,6 +37,8 @@ class AuthNotifier extends AsyncNotifier<void> {
         email: email.trim(),
         password: password,
       );
+      ref.invalidate(userProfileProvider);
+      ref.invalidate(habitsNotifierProvider);
       state = const AsyncData(null);
       return const AuthSuccess();
     } on AuthException catch (e) {
@@ -83,6 +87,8 @@ class AuthNotifier extends AsyncNotifier<void> {
   // Cierra la sesión del usuario
   Future<void> signOut() async {
     await _client.auth.signOut();
+    ref.invalidate(userProfileProvider);
+    ref.invalidate(habitsNotifierProvider);
   }
 
   // Mapea mensajes de error de Supabase a mensajes amigables para el usuario

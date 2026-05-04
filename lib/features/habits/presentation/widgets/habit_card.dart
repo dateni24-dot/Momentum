@@ -197,7 +197,7 @@ class _HabitActionsState extends ConsumerState<_HabitActions> {
       _ticker = null;
     }
   }
-
+//hola
   Future<void> _start() async {
     final result = await ref
         .read(habitsNotifierProvider.notifier)
@@ -217,26 +217,133 @@ class _HabitActionsState extends ConsumerState<_HabitActions> {
         .read(habitsNotifierProvider.notifier)
         .completeHabit(widget.habit.habitId);
     if (!mounted) return;
-    if (result is HabitSuccess) {
-      final xp = widget.habit.time * 2;
+    if (result is HabitCompleted) {
+      final hasMultiplier = result.multiplier > 1.0;
+      final multiplierStr = result.multiplier == 2.0
+          ? '×2.0'
+          : result.multiplier == 1.5
+              ? '×1.5'
+              : '×1.25';
+
+      // Snackbar diferente si hay multiplicador activo
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               const Icon(Icons.bolt_rounded, color: Colors.amber, size: 18),
               const SizedBox(width: 8),
-              Text('+$xp XP para tu avatar'),
+              Text('+${result.xpAwarded} XP'),
+              if (hasMultiplier) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF5722).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFFF5722).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.local_fire_department_rounded,
+                          color: Color(0xFFFF5722), size: 11),
+                      const SizedBox(width: 3),
+                      Text(
+                        multiplierStr,
+                        style: const TextStyle(
+                          color: Color(0xFFFF5722),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const Spacer(),
+              Text(
+                '🔥 ${result.streakDays} día${result.streakDays == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  color: Color(0xFFFF8A65),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           backgroundColor: AppColors.surfaceVariant,
           behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: result.isMilestone ? 4 : 3),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12)),
         ),
       );
+
+      // Level-up: dialog de celebración
+      if (result.leveledUp) {
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          builder: (_) => const _LevelUpDialog(),
+        );
+      }
+
+      // Si es un hito (7, 14 o 30 días), mostrar celebración extra
+      if (result.isMilestone) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Text('🏆', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '¡${result.streakDays} días de racha!',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        _milestoneMessage(result.streakDays),
+                        style: const TextStyle(
+                          color: Color(0xFFFFCC80),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4A148C),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     } else {
       _toast(result);
     }
+  }
+
+  String _milestoneMessage(int streak) {
+    if (streak >= 30) return 'Multiplicador máximo ×2.0 activo 🚀';
+    if (streak >= 14) return 'Multiplicador ×1.5 activo en tu XP';
+    return 'Multiplicador ×1.25 activo en tu XP';
   }
 
   void _toast(HabitResult result) {
@@ -498,3 +605,148 @@ class _CompleteButtonState extends State<_CompleteButton>
   }
 }
 
+// ---------------------------------------------------------------------------
+// Dialog de celebración al subir de nivel
+// ---------------------------------------------------------------------------
+
+class _LevelUpDialog extends StatefulWidget {
+  const _LevelUpDialog();
+
+  @override
+  State<_LevelUpDialog> createState() => _LevelUpDialogState();
+}
+
+class _LevelUpDialogState extends State<_LevelUpDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..forward();
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(28, 36, 28, 28),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: Colors.amber.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.amber.withValues(alpha: 0.25),
+                  blurRadius: 40,
+                  spreadRadius: 8,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icono estrella con glow
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.amber.withValues(alpha: 0.12),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.4),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withValues(alpha: 0.3),
+                        blurRadius: 24,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.amber,
+                    size: 40,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  '¡LEVEL UP!',
+                  style: TextStyle(
+                    color: Colors.amber,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 3,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                const Text(
+                  '¡Has subido de nivel!\nMira tu perfil para ver tu nuevo avatar.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      '¡Genial!',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
