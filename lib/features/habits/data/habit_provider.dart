@@ -157,8 +157,9 @@ class HabitRepository {
         .eq('user_id', userId);
 
     final rpcResult = await _client.rpc('complete_habit_with_streak', params: {
-      'p_user_id': userId,
-      'p_base_xp': baseXp,
+      'p_user_id':  userId,
+      'p_habit_id': habitId,
+      'p_base_xp':  baseXp,
     }) as Map<String, dynamic>;
 
     final data = await _client
