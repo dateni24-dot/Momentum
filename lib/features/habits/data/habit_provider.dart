@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/habit_model.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../achievements/domain/achievement_model.dart';
 import '../../auth/data/auth_provider.dart';
 
 /// Repositorio CRUD de hábitos.
@@ -175,18 +176,35 @@ class HabitRepository {
       'started_at': data['started_at'],
     };
 
+    // Evalúa y concede logros según el histórico del usuario
+    List<UnlockedAchievement> newAchievements = [];
+    try {
+      final achievementResult = await _client.rpc(
+        'check_and_grant_achievements',
+        params: {'p_user_id': userId},
+      );
+      if (achievementResult != null) {
+        newAchievements = (achievementResult as List)
+            .map((m) => UnlockedAchievement.fromMap(m as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (_) {
+      // Si falla el check de logros, no interrumpimos la finalización
+    }
+
     return CompleteHabitResult(
-      habit:       HabitModel.fromMap(habitMap),
-      xpAwarded:   (rpcResult['xp_awarded']  as num).toInt(),
-      multiplier:  (rpcResult['multiplier']   as num).toDouble(),
-      streakDays:  (rpcResult['streak_days']  as num).toInt(),
-      isMilestone: rpcResult['is_milestone']  as bool,
-      leveledUp:   rpcResult['leveled_up']    as bool? ?? false,
+      habit:           HabitModel.fromMap(habitMap),
+      xpAwarded:       (rpcResult['xp_awarded']  as num).toInt(),
+      multiplier:      (rpcResult['multiplier']   as num).toDouble(),
+      streakDays:      (rpcResult['streak_days']  as num).toInt(),
+      isMilestone:     rpcResult['is_milestone']  as bool,
+      leveledUp:       rpcResult['leveled_up']    as bool? ?? false,
+      newAchievements: newAchievements,
     );
   }
 }
 
-/// Datos que devuelve completeHabit (hábito actualizado + info de racha)
+/// Datos que devuelve completeHabit (hábito actualizado + info de racha + logros)
 class CompleteHabitResult {
   final HabitModel habit;
   final int xpAwarded;
@@ -194,6 +212,7 @@ class CompleteHabitResult {
   final int streakDays;
   final bool isMilestone;
   final bool leveledUp;
+  final List<UnlockedAchievement> newAchievements;
 
   const CompleteHabitResult({
     required this.habit,
@@ -202,6 +221,7 @@ class CompleteHabitResult {
     required this.streakDays,
     required this.isMilestone,
     required this.leveledUp,
+    this.newAchievements = const [],
   });
 }
 

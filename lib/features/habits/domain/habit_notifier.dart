@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'habit_model.dart';
 import '../data/habit_provider.dart';
+import '../../achievements/data/achievement_provider.dart';
+import '../../achievements/domain/achievement_model.dart';
 import '../../profile/data/profile_provider.dart';
 
 /// Estado del notifier de hábitos
@@ -36,13 +38,14 @@ class HabitFailure extends HabitResult {
   final String message;
   HabitFailure(this.message);
 }
-// Resultado cuando el hábito se completa exitosamente: incluye XP, racha y multiplicador
+// Resultado cuando el hábito se completa exitosamente: incluye XP, racha, multiplicador y logros
 class HabitCompleted extends HabitResult {
   final int xpAwarded;
   final double multiplier;
   final int streakDays;
   final bool isMilestone;
   final bool leveledUp;
+  final List<UnlockedAchievement> newAchievements;
 
   HabitCompleted({
     required this.xpAwarded,
@@ -50,6 +53,7 @@ class HabitCompleted extends HabitResult {
     required this.streakDays,
     required this.isMilestone,
     required this.leveledUp,
+    this.newAchievements = const [],
   });
 }
 
@@ -204,12 +208,17 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
           .toList();
       state = AsyncValue.data(HabitsState(habits: list));
       ref.invalidate(userProfileProvider);
+      if (result.newAchievements.isNotEmpty) {
+        ref.invalidate(achievementsProvider);
+        ref.invalidate(unlockedAchievementsCountProvider);
+      }
       return HabitCompleted(
-        xpAwarded:   result.xpAwarded,
-        multiplier:  result.multiplier,
-        streakDays:  result.streakDays,
-        isMilestone: result.isMilestone,
-        leveledUp:   result.leveledUp,
+        xpAwarded:       result.xpAwarded,
+        multiplier:      result.multiplier,
+        streakDays:      result.streakDays,
+        isMilestone:     result.isMilestone,
+        leveledUp:       result.leveledUp,
+        newAchievements: result.newAchievements,
       );
     } on PostgrestException catch (e) {
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));
