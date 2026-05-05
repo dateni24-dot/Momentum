@@ -227,7 +227,7 @@ class _HabitActionsState extends ConsumerState<_HabitActions> {
 
       // Snackbar diferente si hay multiplicador activo
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        SnackBar(// borrar datos de prueba
           content: Row(
             children: [
               const Icon(Icons.bolt_rounded, color: Colors.amber, size: 18),
