@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/habit_model.dart';
 import '../../domain/habit_notifier.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../features/achievements/domain/achievement_model.dart';
 
 /// Tarjeta que representa un hábito en la lista.
 /// Las acciones de editar/eliminar se hacen deslizando (SwipeableHabitCard).
@@ -289,6 +290,17 @@ class _HabitActionsState extends ConsumerState<_HabitActions> {
           context: context,
           barrierDismissible: true,
           builder: (_) => const _LevelUpDialog(),
+        );
+      }
+
+      // Logros desbloqueados
+      for (final achievement in result.newAchievements) {
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          builder: (_) => _AchievementUnlockedDialog(achievement: achievement),
         );
       }
 
@@ -601,6 +613,172 @@ class _CompleteButtonState extends State<_CompleteButton>
           ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dialog de logro desbloqueado
+// ---------------------------------------------------------------------------
+
+class _AchievementUnlockedDialog extends StatefulWidget {
+  final UnlockedAchievement achievement;
+  const _AchievementUnlockedDialog({required this.achievement});
+
+  @override
+  State<_AchievementUnlockedDialog> createState() =>
+      _AchievementUnlockedDialogState();
+}
+
+class _AchievementUnlockedDialogState extends State<_AchievementUnlockedDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..forward();
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(28, 36, 28, 28),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.25),
+                  blurRadius: 40,
+                  spreadRadius: 8,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.4),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 24,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events_rounded,
+                    color: AppColors.primary,
+                    size: 40,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                const Text(
+                  '¡LOGRO DESBLOQUEADO!',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                Text(
+                  widget.achievement.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.monetization_on_rounded,
+                        color: AppColors.warning, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      '+${widget.achievement.coins} monedas',
+                      style: const TextStyle(
+                        color: AppColors.warning,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 28),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      '¡Genial!',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
