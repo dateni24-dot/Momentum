@@ -10,7 +10,7 @@ final availableMonthsProvider = FutureProvider<List<String>>((ref) async {
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   if (userId == null) return [];
-
+  // Consultamos todas las fechas de finalización del usuario.
   final data = await client
       .from('habit_completion')
       .select('completed_at')
@@ -60,7 +60,7 @@ final historyProvider = FutureProvider<List<HistoryEntry>>((ref) async {
       .eq('user_id', userId)
       .order('completed_at', ascending: false)
       .limit(100);
-
+  // El resultado es una lista de objetos con: habit_name, duration_min, started_at, completed_at, xp_earned, multiplier.
   return (data as List)
       .map((m) => HistoryEntry.fromMap(m as Map<String, dynamic>))
       .toList();
