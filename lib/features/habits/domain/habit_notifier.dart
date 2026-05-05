@@ -187,6 +187,8 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
     }
   }
 
+
+
   /// Completa el hábito, actualiza la racha y concede XP con multiplicador.
   /// Solo ejecuta si habit.isReadyToComplete == true.
   Future<HabitResult> completeHabit(int habitId) async {
