@@ -91,6 +91,101 @@ class AuthNotifier extends AsyncNotifier<void> {
     ref.invalidate(habitsNotifierProvider);
   }
 
+  /// Cambia el username en `public.user` y en los metadatos de auth.
+  Future<AuthResult> changeUsername(String newUsername) async {
+    state = const AsyncLoading();
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        state = const AsyncData(null);
+        return const AuthFailure('No hay sesión activa.');
+      }
+      final trimmed = newUsername.trim();
+
+      await _client
+          .from('user')
+          .update({'username': trimmed})
+          .eq('id', user.id);
+
+      await _client.auth.updateUser(
+        UserAttributes(data: {'username': trimmed}),
+      );
+
+      ref.invalidate(userProfileProvider);
+      state = const AsyncData(null);
+      return const AuthSuccess();
+    } on PostgrestException catch (e) {
+      state = const AsyncData(null);
+      debugPrint('[Auth] changeUsername PG: ${e.message}');
+      return AuthFailure('Error al cambiar el nombre. Inténtalo de nuevo.');
+    } catch (e) {
+      state = const AsyncData(null);
+      debugPrint('[Auth] changeUsername error: $e');
+      return AuthFailure('Error inesperado: $e');
+    }
+  }
+
+  /// Cambia la contraseña verificando antes la antigua mediante re-login.
+  Future<AuthResult> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null || user.email == null) {
+        state = const AsyncData(null);
+        return const AuthFailure('No hay sesión activa.');
+      }
+
+      // Verificar contraseña actual
+      try {
+        await _client.auth.signInWithPassword(
+          email: user.email!,
+          password: currentPassword,
+        );
+      } on AuthException {
+        state = const AsyncData(null);
+        return const AuthFailure('La contraseña actual es incorrecta.');
+      }
+
+      await _client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+
+      state = const AsyncData(null);
+      return const AuthSuccess();
+    } on AuthException catch (e) {
+      state = const AsyncData(null);
+      return AuthFailure(_mapAuthError(e.message));
+    } catch (e) {
+      state = const AsyncData(null);
+      debugPrint('[Auth] changePassword error: $e');
+      return AuthFailure('Error inesperado: $e');
+    }
+  }
+
+  /// Elimina la cuenta del usuario y todos sus datos. Irreversible.
+  Future<AuthResult> deleteAccount() async {
+    state = const AsyncLoading();
+    try {
+      await _client.rpc('delete_my_account');
+      await _client.auth.signOut();
+      ref.invalidate(userProfileProvider);
+      ref.invalidate(habitsNotifierProvider);
+      state = const AsyncData(null);
+      return const AuthSuccess();
+    } on PostgrestException catch (e) {
+      state = const AsyncData(null);
+      debugPrint('[Auth] deleteAccount PG: code=${e.code} msg=${e.message}');
+      return AuthFailure('SQL: ${e.message}');
+    } catch (e) {
+      state = const AsyncData(null);
+      debugPrint('[Auth] deleteAccount: $e');
+      return AuthFailure('$e');
+    }
+  }
+
   // Mapea mensajes de error de Supabase a mensajes amigables para el usuario
   String _mapAuthError(String message) {
     final msg = message.toLowerCase();

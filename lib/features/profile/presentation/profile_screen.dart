@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../stats/presentation/stats_screen.dart';
 import '../data/profile_provider.dart';
+import 'change_password_screen.dart';
+import 'change_username_screen.dart';
+import 'delete_account_screen.dart';
 import 'widgets/avatar_registry.dart';
 
 // ---------------------------------------------------------------------------
@@ -84,22 +87,28 @@ class _ProfileContent extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: _SectionCard(
               title: 'Mi Cuenta',
-              items: const [
+              items: [
                 _SettingItem(
                   icon: Icons.person_outline_rounded,
                   label: 'Cambiar nombre de usuario',
-                  comingSoon: true,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ChangeUsernameScreen()),
+                  ),
                 ),
                 _SettingItem(
                   icon: Icons.lock_outline_rounded,
                   label: 'Cambiar contraseña',
-                  comingSoon: true,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                  ),
                 ),
                 _SettingItem(
                   icon: Icons.delete_outline_rounded,
-                  label: 'Eliminar mis datos',
-                  comingSoon: true,
+                  label: 'Eliminar mi cuenta',
                   danger: true,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
+                  ),
                 ),
               ],
             ),
