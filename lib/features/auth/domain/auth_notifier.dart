@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/auth_provider.dart';
 import '../../profile/data/profile_provider.dart';
 import '../../habits/domain/habit_notifier.dart';
+import '../../stats/data/stats_provider.dart';
 
 /// Resultado de una operación de auth
 sealed class AuthResult {
@@ -37,8 +38,7 @@ class AuthNotifier extends AsyncNotifier<void> {
         email: email.trim(),
         password: password,
       );
-      ref.invalidate(userProfileProvider);
-      ref.invalidate(habitsNotifierProvider);
+      _invalidateUserData();
       state = const AsyncData(null);
       return const AuthSuccess();
     } on AuthException catch (e) {
@@ -84,11 +84,22 @@ class AuthNotifier extends AsyncNotifier<void> {
     }
   }
 
+  /// Invalida todos los providers que cachean datos del usuario actual.
+  /// Imprescindible en login/logout/delete para evitar que la siguiente
+  /// sesión vea datos del usuario anterior.
+  void _invalidateUserData() {
+    ref.invalidate(userProfileProvider);
+    ref.invalidate(habitsNotifierProvider);
+    ref.invalidate(availableMonthsProvider);
+    ref.invalidate(habitStatsProvider);
+    ref.invalidate(historyProvider);
+    ref.invalidate(selectedMonthProvider);
+  }
+
   // Cierra la sesión del usuario
   Future<void> signOut() async {
     await _client.auth.signOut();
-    ref.invalidate(userProfileProvider);
-    ref.invalidate(habitsNotifierProvider);
+    _invalidateUserData();
   }
 
   /// Cambia el username en `public.user` y en los metadatos de auth.
@@ -171,8 +182,7 @@ class AuthNotifier extends AsyncNotifier<void> {
     try {
       await _client.rpc('delete_my_account');
       await _client.auth.signOut();
-      ref.invalidate(userProfileProvider);
-      ref.invalidate(habitsNotifierProvider);
+      _invalidateUserData();
       state = const AsyncData(null);
       return const AuthSuccess();
     } on PostgrestException catch (e) {
