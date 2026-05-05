@@ -213,10 +213,10 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
       );
     } on PostgrestException catch (e) {
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));
-      return HabitFailure('Error al completar el hábito. Inténtalo de nuevo.');
-    } catch (_) {
+      return HabitFailure('DB error: ${e.message} | code: ${e.code}');
+    } catch (e) {
       state = AsyncValue.data(current);
-      return HabitFailure('Error inesperado. Inténtalo de nuevo.');
+      return HabitFailure('Error inesperado: $e');
     }
   }
 }

@@ -81,27 +81,42 @@ class UserProfile {
   }
 }
 
-final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
-  final client = ref.read(supabaseClientProvider);
-  final userId = client.auth.currentUser?.id;
-  if (userId == null) return null;
+class UserProfileNotifier extends AutoDisposeAsyncNotifier<UserProfile?> {
+  @override
+  Future<UserProfile?> build() => _fetch();
 
-  final data = await client
-      .from(AppConstants.tableUser)
-      .select('''
-        id,
-        username,
-        coins,
-        streak_days,
-        streak_record,
-        user_avatar(
-          current_xp,
-          avatar_evo!fk_user_avatar_avatar_evo(evo_img, level, max_xp),
-          avatars(avatar_name)
-        )
-      ''')
-      .eq('id', userId)
-      .single();
+  Future<UserProfile?> _fetch() async {
+    final client = ref.read(supabaseClientProvider);
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return null;
 
-  return UserProfile.fromMap(data);
-});
+    final data = await client
+        .from(AppConstants.tableUser)
+        .select('''
+          id,
+          username,
+          coins,
+          streak_days,
+          streak_record,
+          user_avatar(
+            current_xp,
+            avatar_evo!fk_user_avatar_avatar_evo(evo_img, level, max_xp),
+            avatars(avatar_name)
+          )
+        ''')
+        .eq('id', userId)
+        .single();
+
+    return UserProfile.fromMap(data);
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(_fetch);
+  }
+}
+
+final userProfileProvider =
+    AsyncNotifierProvider.autoDispose<UserProfileNotifier, UserProfile?>(
+  UserProfileNotifier.new,
+);

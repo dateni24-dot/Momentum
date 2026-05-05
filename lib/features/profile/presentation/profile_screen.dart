@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../achievements/data/achievement_provider.dart';
+import '../../achievements/presentation/achievements_screen.dart';
 import '../../stats/presentation/stats_screen.dart';
 import '../data/profile_provider.dart';
 import 'change_password_screen.dart';
@@ -13,11 +15,16 @@ import 'widgets/avatar_registry.dart';
 // ProfileScreen — contenido embebido en el tab "Perfil" del HomeScreen
 // ---------------------------------------------------------------------------
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  @override
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
 
     return profileAsync.when(
@@ -74,6 +81,14 @@ class _ProfileContent extends StatelessWidget {
                   label: 'Estadísticas e historial',
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const StatsScreen()),
+                  ),
+                ),
+                _SettingItem(
+                  icon: Icons.emoji_events_rounded,
+                  label: 'Mis logros',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const AchievementsScreen()),
                   ),
                 ),
               ],
@@ -270,13 +285,16 @@ class _ProfileHeader extends StatelessWidget {
 // Fila de estadísticas
 // ---------------------------------------------------------------------------
 
-class _StatsRow extends StatelessWidget {
+class _StatsRow extends ConsumerWidget {
   final int coins;
   final int streak;
   const _StatsRow({required this.coins, required this.streak});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countAsync = ref.watch(unlockedAchievementsCountProvider);
+    final achievementValue = countAsync.whenOrNull(data: (c) => '$c') ?? '—';
+
     return Row(
       children: [
         Expanded(
@@ -295,10 +313,10 @@ class _StatsRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: _StatCard(
             icon: Icons.emoji_events_outlined,
-            value: '0',
+            value: achievementValue,
             label: 'Logros',
           ),
         ),
