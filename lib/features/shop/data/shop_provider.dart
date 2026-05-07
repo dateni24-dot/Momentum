@@ -33,35 +33,62 @@ class AvatarShopNotifier
     final userId = client.auth.currentUser?.id;
     if (userId == null) return [];
 
+    // Todos los avatares con todas sus evoluciones para extraer el evo_img de lv1
     final allAvatars = await client
         .from('avatars')
-        .select('avatar_id, avatar_name, avatar_descript, avatar_price')
+        .select('avatar_id, avatar_name, avatar_descript, avatar_price, avatar_evo(evo_img, level)')
         .order('avatar_price');
 
+    // Avatares que ya posee el usuario con su evo_img actual
     final ownedRows = await client
         .from('user_avatar')
-        .select('avatar_id, current')
+        .select('avatar_id, current, avatar_evo!fk_user_avatar_avatar_evo(evo_img)')
         .eq('user_id', userId);
 
     final isPurchasedMap = <String, bool>{};
     final isCurrentMap   = <String, bool>{};
+    final ownedEvoImgMap = <String, String>{};
+
     for (final row in ownedRows) {
       final id = row['avatar_id'].toString();
       isPurchasedMap[id] = true;
       isCurrentMap[id]   = row['current'] == true;
+      final evo = row['avatar_evo'];
+      if (evo is Map) {
+        ownedEvoImgMap[id] = evo['evo_img'] as String? ?? '';
+      }
     }
 
     return allAvatars.map<ShopAvatar>((a) {
-      final id   = a['avatar_id'].toString();
-      final name = a['avatar_name'] as String? ?? '';
+      final id = a['avatar_id'].toString();
+
+      // evo_img de nivel 1 para mostrar en avatares no comprados
+      String lv1EvoImg = '';
+      final evoData = a['avatar_evo'];
+      if (evoData is List) {
+        for (final e in evoData) {
+          if (e['level'] == 1) { lv1EvoImg = e['evo_img'] as String? ?? ''; break; }
+        }
+        if (lv1EvoImg.isEmpty && evoData.isNotEmpty) {
+          lv1EvoImg = evoData.first['evo_img'] as String? ?? '';
+        }
+      } else if (evoData is Map) {
+        lv1EvoImg = evoData['evo_img'] as String? ?? '';
+      }
+
+      // Comprado → mostrar su evolución actual; sin comprar → mostrar lv1
+      final previewKey = ownedEvoImgMap[id]?.isNotEmpty == true
+          ? ownedEvoImgMap[id]!
+          : lv1EvoImg;
+
       return ShopAvatar(
         id:          id,
-        name:        name,
+        name:        a['avatar_name'] as String? ?? '',
         description: a['avatar_descript'] as String? ?? '',
         price:       (a['avatar_price'] as int?) ?? 0,
         isPurchased: isPurchasedMap.containsKey(id),
         isCurrent:   isCurrentMap[id] == true,
-        previewKey:  '${name.toLowerCase()}_lv1',
+        previewKey:  previewKey,
       );
     }).toList();
   }
