@@ -15,7 +15,7 @@ abstract final class AvatarRegistry {
   static final _levelRe = RegExp(r'_lvl?(\d+)$');
 
   static Widget forKey(String key, {double size = 80}) {
-    return _GifAvatar(asset: 'assets/avatars/$key.gif', size: size);
+    return _GifAvatar(asset: 'assets/avatars/$key.png', size: size);
   }
 
   static String labelForKey(String key) {
@@ -35,7 +35,7 @@ abstract final class AvatarRegistry {
 }
 
 // ---------------------------------------------------------------------------
-// Widget interno que renderiza un .gif como avatar
+// Widget interno que renderiza la imagen del avatar
 // ---------------------------------------------------------------------------
 
 class _GifAvatar extends StatelessWidget {
