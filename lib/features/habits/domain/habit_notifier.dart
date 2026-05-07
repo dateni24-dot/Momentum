@@ -5,6 +5,7 @@ import '../data/habit_provider.dart';
 import '../../achievements/data/achievement_provider.dart';
 import '../../achievements/domain/achievement_model.dart';
 import '../../profile/data/profile_provider.dart';
+import '../../../core/services/notification_service.dart';
 
 /// Estado del notifier de hábitos
 class HabitsState {
@@ -145,6 +146,7 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
   /// para que el progreso persista aunque la app se cierre.
   Future<HabitResult> startCooldownHabit(int habitId) async {
     final current = state.valueOrNull ?? const HabitsState();
+    final habit = current.habits.firstWhere((h) => h.habitId == habitId);
     state = AsyncValue.data(current.copyWith(isLoading: true));
 
     try {
@@ -154,6 +156,8 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
           .map((h) => h.habitId == habitId ? updated : h)
           .toList();
       state = AsyncValue.data(HabitsState(habits: list));
+      final fireAt = DateTime.now().add(Duration(minutes: habit.time));
+      NotificationService.scheduleHabitReady(habitId: habitId, fireAt: fireAt);
       return HabitSuccess();
     } on PostgrestException catch (e) {
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));
@@ -177,6 +181,7 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
           .map((h) => h.habitId == habitId ? updated : h)
           .toList();
       state = AsyncValue.data(HabitsState(habits: list));
+      NotificationService.cancel(habitId);
       return HabitSuccess();
     } on PostgrestException catch (e) {
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));
@@ -207,6 +212,7 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
           .map((h) => h.habitId == habitId ? result.habit : h)
           .toList();
       state = AsyncValue.data(HabitsState(habits: list));
+      NotificationService.cancel(habitId);
       ref.invalidate(userProfileProvider);
       if (result.newAchievements.isNotEmpty) {
         ref.invalidate(achievementsProvider);

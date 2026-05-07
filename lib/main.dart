@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,8 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Supabase init error: $e');
   }
+  await NotificationService.init();
+  await NotificationService.requestPermission();
   runApp(const ProviderScope(child: MomentumApp()));
 }
 
