@@ -6,7 +6,11 @@
       "Bash(flutter build *)",
       "Bash(dart analyze *)",
       "Bash(git pull *)",
-      "Bash(flutter analyze *)"
+      "Bash(flutter analyze *)",
+      "Bash(mkdir -p /Users/victorescudero/Desktop/Momentum/lib/features/shop/data /Users/victorescudero/Desktop/Momentum/lib/features/shop/presentation)"
+    ],
+    "additionalDirectories": [
+      "/Users/victorescudero/Desktop/Momentum/lib/features/shop"
     ]
   }
 }

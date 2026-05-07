@@ -46,22 +46,19 @@ final userAvatarProvider = FutureProvider<UserAvatar?>((ref) async {
           avatar_evo!inner(level)
         ''')
         .eq('user_id', userId)
-        .single();
+        .eq('current', true)
+        .maybeSingle();
+
+    if (response == null) return null;
 
     return UserAvatar.fromJson({
-      'avatar_id':      response['avatar_id'],
-      'avatar_name':    response['avatars']['name'],
-      'avatar_evo_id':  response['avatar_evo_id'],
+      'avatar_id':        response['avatar_id'],
+      'avatar_name':      response['avatars']['name'],
+      'avatar_evo_id':    response['avatar_evo_id'],
       'avatar_evo_level': response['avatar_evo']['level'].toString(),
-      'current_xp':     response['current_xp'],
+      'current_xp':       response['current_xp'],
     });
   } catch (e) {
-    // Si no hay avatar, devolver valores por defecto
-    return const UserAvatar(
-      avatarId: '1',
-      avatarName: 'Novato',
-      avatarEvoId: '1',
-      avatarEvoLevel: '1',
-    );
+    return null;
   }
 });
