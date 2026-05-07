@@ -2,45 +2,35 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
 // ---------------------------------------------------------------------------
-// AvatarRegistry — mapea el identificador evo_img de la BD al widget correcto
+// AvatarRegistry — resuelve dinámicamente el evo_img de la BD
 //
-// evo_img guarda una clave string ('stickman_lv1', 'warrior_lv1', etc.).
-// Todos los avatares son .gif animados en assets/avatars/.
+// Convención: evo_img == nombre del fichero sin extensión dentro de assets/avatars/
+// El nivel se extrae del sufijo _lv<N> o _lvl<N> (ej. stickman_lv2, chica_lvl1).
+// Para añadir un nuevo avatar basta con poner el GIF en assets/avatars/ — no
+// hace falta tocar este archivo.
 // ---------------------------------------------------------------------------
 
 abstract final class AvatarRegistry {
+  // Patrón que captura el número de nivel al final de la clave (_lv1, _lvl1, etc.)
+  static final _levelRe = RegExp(r'_lvl?(\d+)$');
+
   static Widget forKey(String key, {double size = 80}) {
-    switch (key) {
-      case 'stickman_lv1':
-        return _GifAvatar(
-            asset: 'assets/avatars/stickman_lv1.gif', size: size);
-      case 'stickman_lv2':
-        return _GifAvatar(
-            asset: 'assets/avatars/stickman_lv2.gif', size: size);
-      case 'stickman_lv3':
-        return _GifAvatar(
-            asset: 'assets/avatars/stickman_lv3.gif', size: size);
-      default:
-        return _GifAvatar(
-            asset: 'assets/avatars/stickman_lv1.gif', size: size);
-    }
+    return _GifAvatar(asset: 'assets/avatars/$key.gif', size: size);
   }
 
   static String labelForKey(String key) {
-    switch (key) {
-      case 'stickman_lv1': return 'Nivel 1 · Stickman';
-      case 'stickman_lv2': return 'Nivel 2 · Stickman';
-      case 'stickman_lv3': return 'Nivel 3 · Stickman';
-      default:             return 'Nivel 1 · Stickman';
-    }
+    final match  = _levelRe.firstMatch(key);
+    final level  = match?.group(1) ?? '1';
+    final name   = key.replaceAll(_levelRe, '').replaceAll('_', ' ');
+    final titled = name[0].toUpperCase() + name.substring(1);
+    return 'Nivel $level · $titled';
   }
 
   static Color glowColorForKey(String key) {
-    switch (key) {
-      case 'stickman_lv2': return Colors.amber;
-      case 'stickman_lv3': return Colors.cyanAccent;
-      default:             return AppColors.primary;
-    }
+    final level = int.tryParse(_levelRe.firstMatch(key)?.group(1) ?? '1') ?? 1;
+    if (level >= 3) return Colors.cyanAccent;
+    if (level == 2) return Colors.amber;
+    return AppColors.primary;
   }
 }
 
