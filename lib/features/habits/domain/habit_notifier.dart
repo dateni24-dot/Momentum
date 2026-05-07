@@ -156,8 +156,7 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
           .map((h) => h.habitId == habitId ? updated : h)
           .toList();
       state = AsyncValue.data(HabitsState(habits: list));
-      final fireAt = DateTime.now().add(Duration(minutes: habit.time));
-      NotificationService.scheduleHabitReady(habitId: habitId, fireAt: fireAt);
+      NotificationService.scheduleHabitReady(habitId: habitId, minutesFromNow: habit.time);
       return HabitSuccess();
     } on PostgrestException catch (e) {
       state = AsyncValue.data(current.copyWith(errorMessage: e.message));

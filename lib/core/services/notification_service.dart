@@ -51,20 +51,23 @@ class NotificationService {
   }
 
   /// Programa una notificación para cuando el hábito [habitId] esté listo.
+  /// [minutesFromNow] es el tiempo restante en minutos desde este momento.
   static Future<void> scheduleHabitReady({
     required int habitId,
-    required DateTime fireAt,
+    required int minutesFromNow,
   }) async {
-    // Si ya pasó el tiempo (ej: app reabierta con hábito ya listo), no programar
-    if (fireAt.isBefore(DateTime.now())) return;
+    if (minutesFromNow <= 0) return;
 
     final msg = _messages[habitId % _messages.length];
+
+    // Usamos UTC para evitar bugs de zona horaria: sumamos el delay desde ahora
+    final tzFireAt = tz.TZDateTime.now(tz.UTC).add(Duration(minutes: minutesFromNow));
 
     await _plugin.zonedSchedule(
       habitId,
       'Momentum',
       msg,
-      tz.TZDateTime.from(fireAt, tz.local),
+      tzFireAt,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
@@ -75,7 +78,9 @@ class NotificationService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // inexact no requiere permiso especial de alarma (SCHEDULE_EXACT_ALARM)
+      // puede llegar unos minutos tarde pero funciona en todos los Android
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
