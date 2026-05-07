@@ -16,24 +16,29 @@ class ShopScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _ShopHeader(coins: profileAsync.valueOrNull?.coins ?? 0),
-            Expanded(
-              child: shopAsync.when(
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ShopHeader(coins: profileAsync.valueOrNull?.coins ?? 0),
+                Expanded(
+                  child: shopAsync.when(
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
+                    error: (e, _) => _ErrorView(
+                      onRetry: () => ref.invalidate(avatarShopProvider),
+                    ),
+                    data: (avatars) => avatars.isEmpty
+                        ? const _EmptyState()
+                        : _AvatarGrid(avatars: avatars),
+                  ),
                 ),
-                error: (e, _) => _ErrorView(
-                  onRetry: () => ref.invalidate(avatarShopProvider),
-                ),
-                data: (avatars) => avatars.isEmpty
-                    ? const _EmptyState()
-                    : _AvatarGrid(avatars: avatars),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -100,7 +105,7 @@ class _ShopHeader extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Avatares de avatares para personalizar tu perfil',
+            'Avatares para personalizar tu perfil',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 20),
@@ -127,28 +132,49 @@ class _AvatarGrid extends StatelessWidget {
   final List<ShopAvatar> avatars;
   const _AvatarGrid({required this.avatars});
 
+  static int _columns(double width) {
+    if (width >= 900) return 4;
+    if (width >= 580) return 3;
+    return 2;
+  }
+
+  // Ratio más ancho en pantallas grandes para que ~2 filas queden visibles
+  static double _ratio(int cols) {
+    if (cols == 4) return 0.82;
+    if (cols == 3) return 0.76;
+    return 0.72;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-      physics: const BouncingScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:     2,
-        mainAxisSpacing:    14,
-        crossAxisSpacing:   14,
-        childAspectRatio:   0.72,
-      ),
-      itemCount: avatars.length,
-      itemBuilder: (context, index) {
-        return TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: Duration(milliseconds: 200 + index * 60),
-          curve: Curves.easeOutCubic,
-          builder: (_, value, child) => Transform.translate(
-            offset: Offset(0, 20 * (1 - value)),
-            child:  Opacity(opacity: value, child: child),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols  = _columns(constraints.maxWidth);
+        final ratio = _ratio(cols);
+        final gap   = cols >= 3 ? 16.0 : 14.0;
+
+        return GridView.builder(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, cols >= 3 ? 40 : 100),
+          physics: const BouncingScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount:   cols,
+            mainAxisSpacing:  gap,
+            crossAxisSpacing: gap,
+            childAspectRatio: ratio,
           ),
-          child: _AvatarCard(avatar: avatars[index]),
+          itemCount: avatars.length,
+          itemBuilder: (context, index) {
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: Duration(milliseconds: 200 + index * 60),
+              curve: Curves.easeOutCubic,
+              builder: (_, value, child) => Transform.translate(
+                offset: Offset(0, 20 * (1 - value)),
+                child:  Opacity(opacity: value, child: child),
+              ),
+              child: _AvatarCard(avatar: avatars[index]),
+            );
+          },
         );
       },
     );
