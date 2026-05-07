@@ -43,8 +43,14 @@ class UserProfile {
 
     Map<String, dynamic>? asMap(dynamic v) {
       if (v is Map) return Map<String, dynamic>.from(v);
-      if (v is List && v.isNotEmpty && v.first is Map) {
-        return Map<String, dynamic>.from(v.first as Map);
+      if (v is List && v.isNotEmpty) {
+        // Preferir el avatar marcado como current; si ninguno, usar el primero
+        final maps = v.whereType<Map>().toList();
+        final current = maps.firstWhere(
+          (m) => m['current'] == true,
+          orElse: () => maps.first,
+        );
+        return Map<String, dynamic>.from(current);
       }
       return null;
     }
@@ -99,6 +105,7 @@ class UserProfileNotifier extends AutoDisposeAsyncNotifier<UserProfile?> {
           streak_days,
           streak_record,
           user_avatar(
+            current,
             current_xp,
             avatar_evo!fk_user_avatar_avatar_evo(evo_img, level, max_xp),
             avatars(avatar_name)

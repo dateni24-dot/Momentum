@@ -11,6 +11,7 @@ import '../../auth/domain/auth_notifier.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../profile/data/profile_provider.dart';
 import '../../profile/presentation/widgets/avatar_registry.dart';
+import '../../shop/presentation/shop_screen.dart';
 
 // ---------------------------------------------------------------------------
 // HomeScreen principal — gestiona la animación de bienvenida y el tab actual
@@ -59,25 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _onTabTapped(int index) {
-    if (index == 0 || index == 1) {
-      setState(() => _currentTab = index);
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.construction_rounded,
-                color: AppColors.primary, size: 18),
-            SizedBox(width: 10),
-            Text('Tienda — Próximamente'),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceVariant,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    setState(() => _currentTab = index);
   }
 
   @override
@@ -95,18 +78,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         children: [
           // Contenido según tab activo
           SafeArea(
-            child: _currentTab == 1
-                ? const ProfileScreen()
-                : habitsAsync.when(
-                    loading: () => const Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    ),
-                    error: (_, __) => _ErrorView(
-                      onRetry: () =>
-                          ref.read(habitsNotifierProvider.notifier).refresh(),
-                    ),
-                    data: (state) => _HomeContent(state: state),
+            child: switch (_currentTab) {
+              1 => const ProfileScreen(),
+              2 => const ShopScreen(),
+              _ => habitsAsync.when(
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   ),
+                  error: (_, __) => _ErrorView(
+                    onRetry: () =>
+                        ref.read(habitsNotifierProvider.notifier).refresh(),
+                  ),
+                  data: (state) => _HomeContent(state: state),
+                ),
+            },
           ),
 
           // Splash de bienvenida (solo en tab hábitos)

@@ -5,6 +5,7 @@ import '../domain/achievement_model.dart';
 
 /// Fetches all achievements with unlock + eligibility status.
 final achievementsProvider = FutureProvider<List<AchievementModel>>((ref) async {
+  ref.watch(authStateProvider); // rebuild when user changes
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   if (userId == null) return [];
