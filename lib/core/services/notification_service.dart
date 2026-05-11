@@ -14,6 +14,9 @@ class NotificationService {
   static const _dailyChannelName = 'Recordatorio diario';
   static const _dailyChannelDesc = 'Recordatorio diario para completar hábitos';
   static const _dailyNotifId     = 0;
+  static const _testNotifId      = 8888;
+
+  static const _timeout = Duration(seconds: 5);
 
   static const _messages = [
     '¿Te atreves a reclamar lo que es tuyo?',
@@ -39,8 +42,6 @@ class NotificationService {
       const InitializationSettings(android: android, iOS: ios),
     );
 
-    // Crear los canales explícitamente para que existan cuando el receiver
-    // los necesite en background (sin proceso Flutter activo)
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (androidPlugin != null) {
@@ -63,7 +64,6 @@ class NotificationService {
     }
   }
 
-  /// Solicita permiso al usuario. Devuelve true si fue concedido.
   static Future<bool> requestPermission() async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
@@ -78,61 +78,72 @@ class NotificationService {
     return false;
   }
 
-  /// Muestra una notificación inmediata. Útil para probar que el sistema funciona.
   static Future<void> showTestNotification() async {
-    await _plugin.show(
-      999,
-      'Momentum — Prueba ✅',
-      'Las notificaciones funcionan correctamente.',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDesc,
-          importance: Importance.high,
-          priority: Priority.high,
+    try {
+      await _plugin.show(
+        999,
+        'Momentum — Prueba ✅',
+        'Las notificaciones funcionan correctamente.',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
         ),
-      ),
+      ).timeout(_timeout);
+    } catch (_) {}
+  }
+
+  /// Programa una notificación de prueba en 30 segundos.
+  /// Devuelve cadena vacía si OK, o el error.
+  static Future<String> scheduleTestIn30s() async {
+    final fireAt = tz.TZDateTime.now(tz.UTC).add(const Duration(seconds: 30));
+    return _trySchedule(
+      id:    _testNotifId,
+      title: 'Momentum — Test programado ⏰',
+      body:  'Esta notificación se programó hace 30 segundos.',
+      fireAt: fireAt,
     );
   }
 
-  /// Programa una notificación para cuando el hábito [habitId] esté listo.
+  /// SOLO usar bajo demanda — esta API puede ser lenta o colgar en algunos OEMs.
+  /// Tiene timeout de 5 seg para que nunca cuelgue el UI.
+  static Future<int> pendingCount() async {
+    try {
+      final pending = await _plugin.pendingNotificationRequests().timeout(_timeout);
+      return pending.length;
+    } catch (_) {
+      return -1; // marker de "error/timeout"
+    }
+  }
+
+  static Future<void> cancelAll() async {
+    try {
+      await _plugin.cancelAll().timeout(_timeout);
+    } catch (_) {}
+  }
+
   static Future<void> scheduleHabitReady({
     required int habitId,
     required int minutesFromNow,
   }) async {
     if (minutesFromNow <= 0) return;
-
     final msg = _messages[habitId % _messages.length];
-    final tzFireAt = tz.TZDateTime.now(tz.UTC).add(Duration(minutes: minutesFromNow));
-
-    await _plugin.zonedSchedule(
-      habitId,
-      'Momentum',
-      msg,
-      tzFireAt,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDesc,
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    final fireAt = tz.TZDateTime.now(tz.UTC).add(Duration(minutes: minutesFromNow));
+    await _trySchedule(
+      id: habitId, title: 'Momentum', body: msg, fireAt: fireAt,
     );
   }
 
-  /// Cancela la notificación del hábito (al cancelar o completar el hábito).
   static Future<void> cancel(int habitId) async {
-    await _plugin.cancel(habitId);
+    try {
+      await _plugin.cancel(habitId).timeout(_timeout);
+    } catch (_) {}
   }
 
-  /// Programa un recordatorio diario a la hora local indicada.
   static Future<void> scheduleDailyReminder(TimeOfDay time) async {
     final offset = DateTime.now().timeZoneOffset;
     final now    = tz.TZDateTime.now(tz.UTC);
@@ -146,30 +157,68 @@ class NotificationService {
       target = target.add(const Duration(days: 1));
     }
 
-    await _plugin.zonedSchedule(
-      _dailyNotifId,
-      'Momentum',
-      'Tus hábitos te están esperando 💪',
-      target,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _dailyChannelId,
-          _dailyChannelName,
-          channelDescription: _dailyChannelDesc,
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+    await _trySchedule(
+      id:      _dailyNotifId,
+      title:   'Momentum',
+      body:    'Tus hábitos te están esperando 💪',
+      fireAt:  target,
+      isDaily: true,
+      repeats: true,
     );
   }
 
-  /// Cancela el recordatorio diario.
   static Future<void> cancelDailyReminder() async {
-    await _plugin.cancel(_dailyNotifId);
+    try {
+      await _plugin.cancel(_dailyNotifId).timeout(_timeout);
+    } catch (_) {}
+  }
+
+  /// Intenta programar con `inexactAllowWhileIdle` (más compatible).
+  /// Si falla, intenta `exactAllowWhileIdle`. Con timeout 5 seg.
+  static Future<String> _trySchedule({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime fireAt,
+    bool isDaily = false,
+    bool repeats = false,
+  }) async {
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        isDaily ? _dailyChannelId   : _channelId,
+        isDaily ? _dailyChannelName : _channelName,
+        channelDescription: isDaily ? _dailyChannelDesc : _channelDesc,
+        importance: Importance.high,
+        priority:   Priority.high,
+        category:   AndroidNotificationCategory.reminder,
+      ),
+      iOS: const DarwinNotificationDetails(),
+    );
+
+    // Inexact primero — funciona en todos los Android sin permisos especiales
+    try {
+      await _plugin.zonedSchedule(
+        id, title, body, fireAt, details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: repeats ? DateTimeComponents.time : null,
+      ).timeout(_timeout);
+      return '';
+    } catch (e) {
+      // Fallback a exact
+      try {
+        await _plugin.zonedSchedule(
+          id, title, body, fireAt, details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: repeats ? DateTimeComponents.time : null,
+        ).timeout(_timeout);
+        return '';
+      } catch (e2) {
+        return '$e2';
+      }
+    }
   }
 }

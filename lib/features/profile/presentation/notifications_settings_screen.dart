@@ -16,6 +16,7 @@ class _NotificationsSettingsScreenState
   bool _enabled    = false;
   TimeOfDay _time  = const TimeOfDay(hour: 9, minute: 0);
   bool _loading    = true;
+  int  _pending    = 0;
 
   @override
   void initState() {
@@ -24,6 +25,7 @@ class _NotificationsSettingsScreenState
   }
 
   Future<void> _load() async {
+    // NO llamamos a pendingCount aquí — esa API puede colgar en algunos OEMs
     final enabled = await NotificationPrefs.getEnabled();
     final time    = await NotificationPrefs.getTime();
     if (mounted) {
@@ -33,6 +35,84 @@ class _NotificationsSettingsScreenState
         _loading = false;
       });
     }
+  }
+
+  Future<void> _refreshPending() async {
+    // Muestra feedback inmediato — la API puede tardar
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Consultando pendientes...'),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+    final pending = await NotificationService.pendingCount();
+    if (!mounted) return;
+    setState(() => _pending = pending);
+    final msg = pending < 0
+        ? 'Error consultando (timeout)'
+        : 'En cola: $pending notificación${pending == 1 ? '' : 'es'}';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Future<void> _testScheduled() async {
+    // Feedback INMEDIATO antes del await
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Programando notificación... cierra la app ahora y espera 30 seg'),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    final err = await NotificationService.scheduleTestIn30s();
+
+    if (!mounted) return;
+    if (err.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ERROR: $err'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('✅ Programada correctamente'),
+          backgroundColor: AppColors.surface,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _cancelAll() async {
+    await NotificationService.cancelAll();
+    if (!mounted) return;
+    setState(() => _pending = 0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Todas las notificaciones pendientes canceladas'),
+        backgroundColor: AppColors.surface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   Future<void> _toggleEnabled(bool value) async {
@@ -193,6 +273,42 @@ class _NotificationsSettingsScreenState
                     ),
                   ),
                 ),
+                // Indicador de pendientes
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.schedule_rounded,
+                          color: AppColors.primary, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Notificaciones programadas en cola: $_pending',
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _refreshPending,
+                        child: const Icon(Icons.refresh_rounded,
+                            color: AppColors.primary, size: 18),
+                      ),
+                    ],
+                  ),
+                ),
+
                 Container(
                   decoration: BoxDecoration(
                     color: AppColors.surface,
@@ -201,45 +317,116 @@ class _NotificationsSettingsScreenState
                       color: AppColors.primary.withValues(alpha: 0.10),
                     ),
                   ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () async {
-                      await NotificationService.showTestNotification();
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Notificación enviada — comprueba el panel de notificaciones'),
-                          backgroundColor: AppColors.surface,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                      );
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                      child: Row(
-                        children: [
-                          Icon(Icons.notifications_active_outlined,
-                              color: AppColors.primary, size: 20),
-                          SizedBox(width: 14),
-                          Expanded(
-                            child: Text(
-                              'Enviar notificación de prueba',
-                              style: TextStyle(
-                                  color: AppColors.textPrimary, fontSize: 15),
+                  child: Column(
+                    children: [
+                      // Test inmediato
+                      InkWell(
+                        onTap: () async {
+                          await NotificationService.showTestNotification();
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                  'Notificación inmediata enviada'),
+                              backgroundColor: AppColors.surface,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
+                          );
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 15),
+                          child: Row(
+                            children: [
+                              Icon(Icons.flash_on_rounded,
+                                  color: AppColors.primary, size: 20),
+                              SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  'Probar notificación inmediata',
+                                  style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 15),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded,
+                                  color: AppColors.textSecondary, size: 20),
+                            ],
                           ),
-                          Icon(Icons.chevron_right_rounded,
-                              color: AppColors.textSecondary, size: 20),
-                        ],
+                        ),
                       ),
-                    ),
+                      Divider(
+                        height: 1,
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        indent: 54,
+                      ),
+                      // Test programado 30 segundos
+                      InkWell(
+                        onTap: _testScheduled,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 15),
+                          child: Row(
+                            children: [
+                              Icon(Icons.timer_outlined,
+                                  color: AppColors.primary, size: 20),
+                              SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  'Probar programada (30 seg)',
+                                  style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 15),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded,
+                                  color: AppColors.textSecondary, size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Divider(
+                        height: 1,
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        indent: 54,
+                      ),
+                      // Cancelar todas
+                      InkWell(
+                        onTap: _cancelAll,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 15),
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_rounded,
+                                  color: Colors.redAccent, size: 20),
+                              SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  'Cancelar todas las pendientes',
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 15),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded,
+                                  color: AppColors.textSecondary, size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Si aparece la notificación, el sistema funciona correctamente. Si no aparece, ve a Ajustes del móvil > Batería > Optimización de batería y excluye Momentum.',
+                  'Cómo diagnosticar:\n'
+                  '1. Pulsa "Probar programada (30 seg)"\n'
+                  '2. El contador de arriba debe subir a 1+\n'
+                  '3. CIERRA la app (deslizándola del multitarea)\n'
+                  '4. Espera 30 segundos\n\n'
+                  'Si llega → todo funciona. Si NO llega → ve a Ajustes del móvil > Batería > Optimización de batería > Momentum > "No optimizar".',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
