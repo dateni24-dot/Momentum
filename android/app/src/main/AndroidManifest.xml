@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Auto-concedido en Android 13+: permite alarmas exactas para notificaciones de hábitos -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <!-- Para Android 12 (API 32): el usuario debe concederlo en Ajustes > Alarmas -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
     <application
         android:label="momentum_app"
         android:name="${applicationName}"
