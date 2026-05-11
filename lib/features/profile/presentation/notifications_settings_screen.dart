@@ -177,6 +177,75 @@ class _NotificationsSettingsScreenState
                     height: 1.5,
                   ),
                 ),
+
+                const SizedBox(height: 32),
+
+                // ── Prueba de notificación ────────────────────────────────
+                const Padding(
+                  padding: EdgeInsets.only(left: 4, bottom: 10),
+                  child: Text(
+                    'DIAGNÓSTICO',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.10),
+                    ),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      await NotificationService.showTestNotification();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Notificación enviada — comprueba el panel de notificaciones'),
+                          backgroundColor: AppColors.surface,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+                      child: Row(
+                        children: [
+                          Icon(Icons.notifications_active_outlined,
+                              color: AppColors.primary, size: 20),
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              'Enviar notificación de prueba',
+                              style: TextStyle(
+                                  color: AppColors.textPrimary, fontSize: 15),
+                            ),
+                          ),
+                          Icon(Icons.chevron_right_rounded,
+                              color: AppColors.textSecondary, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Si aparece la notificación, el sistema funciona correctamente. Si no aparece, ve a Ajustes del móvil > Batería > Optimización de batería y excluye Momentum.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
               ],
             ),
     );
