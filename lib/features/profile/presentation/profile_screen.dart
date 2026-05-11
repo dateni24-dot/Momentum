@@ -9,6 +9,7 @@ import '../data/profile_provider.dart';
 import 'change_password_screen.dart';
 import 'change_username_screen.dart';
 import 'delete_account_screen.dart';
+import 'notifications_settings_screen.dart';
 import 'widgets/avatar_registry.dart';
 
 // ---------------------------------------------------------------------------
@@ -123,6 +124,26 @@ class _ProfileContent extends StatelessWidget {
                   danger: true,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Sección notificaciones ────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _SectionCard(
+              title: 'Notificaciones',
+              items: [
+                _SettingItem(
+                  icon: Icons.notifications_outlined,
+                  label: 'Recordatorio diario',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationsSettingsScreen()),
                   ),
                 ),
               ],

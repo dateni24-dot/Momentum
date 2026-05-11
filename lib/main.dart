@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/notification_prefs.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +19,11 @@ Future<void> main() async {
     debugPrint('Supabase init error: $e');
   }
   await NotificationService.init();
-  await NotificationService.requestPermission();
+  // Restaurar recordatorio diario si el usuario lo tenía activado
+  if (await NotificationPrefs.getEnabled()) {
+    final time = await NotificationPrefs.getTime();
+    await NotificationService.scheduleDailyReminder(time);
+  }
   runApp(const ProviderScope(child: MomentumApp()));
 }
 

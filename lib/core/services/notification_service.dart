@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -7,8 +8,12 @@ class NotificationService {
 
   static const _channelId = 'habit_ready';
   static const _channelName = 'Hábitos completados';
-  static const _channelDesc =
-      'Aviso cuando un hábito está listo para reclamar';
+  static const _channelDesc = 'Aviso cuando un hábito está listo para reclamar';
+
+  static const _dailyChannelId   = 'daily_reminder';
+  static const _dailyChannelName = 'Recordatorio diario';
+  static const _dailyChannelDesc = 'Recordatorio diario para completar hábitos';
+  static const _dailyNotifId     = 0;
 
   static const _messages = [
     '¿Te atreves a reclamar lo que es tuyo?',
@@ -89,5 +94,49 @@ class NotificationService {
   /// Cancela la notificación del hábito (al cancelar o completar el hábito).
   static Future<void> cancel(int habitId) async {
     await _plugin.cancel(habitId);
+  }
+
+  /// Programa un recordatorio diario a la hora local indicada.
+  /// Usa DateTimeComponents.time para que se repita cada día.
+  static Future<void> scheduleDailyReminder(TimeOfDay time) async {
+    // Convertimos la hora local a UTC sumando el offset del dispositivo
+    final offset = DateTime.now().timeZoneOffset;
+    final now    = tz.TZDateTime.now(tz.UTC);
+
+    var target = tz.TZDateTime.utc(
+      now.year, now.month, now.day,
+      time.hour, time.minute,
+    ).subtract(offset);
+
+    // Si ya pasó hoy, empezamos mañana
+    if (target.isBefore(now)) {
+      target = target.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      _dailyNotifId,
+      'Momentum',
+      'Tus hábitos te están esperando 💪',
+      target,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _dailyChannelId,
+          _dailyChannelName,
+          channelDescription: _dailyChannelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  /// Cancela el recordatorio diario.
+  static Future<void> cancelDailyReminder() async {
+    await _plugin.cancel(_dailyNotifId);
   }
 }

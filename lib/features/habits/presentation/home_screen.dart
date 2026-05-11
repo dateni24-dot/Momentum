@@ -7,6 +7,7 @@ import '../domain/habit_notifier.dart';
 import 'habit_form_screen.dart';
 import 'widgets/swipeable_habit_card.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/notification_service.dart';
 import '../../auth/domain/auth_notifier.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../profile/data/profile_provider.dart';
@@ -34,6 +35,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
+
+    // Pedir permiso de notificaciones cuando la UI ya está montada
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.requestPermission();
+    });
 
     // Controlador para desvanecer el splash de bienvenida
     _welcomeCtrl = AnimationController(
