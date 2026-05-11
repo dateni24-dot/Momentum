@@ -39,23 +39,40 @@ class AvatarShopNotifier
         .select('avatar_id, avatar_name, avatar_descript, avatar_price, avatar_evo(evo_img, level)')
         .order('avatar_price');
 
-    // Avatares que ya posee el usuario con su evo_img actual
+    // Avatares que ya posee el usuario (con avatar_evo_id explícito)
     final ownedRows = await client
         .from('user_avatar')
-        .select('avatar_id, current, avatar_evo!fk_user_avatar_avatar_evo(evo_img)')
+        .select('avatar_id, current, avatar_evo_id')
         .eq('user_id', userId);
 
     final isPurchasedMap = <String, bool>{};
     final isCurrentMap   = <String, bool>{};
     final ownedEvoImgMap = <String, String>{};
 
+    // Obtener evo_imgs usando avatar_evo_id directamente
+    final evoIds = ownedRows
+        .where((r) => r['avatar_evo_id'] != null)
+        .map((r) => r['avatar_evo_id'])
+        .toList();
+
+    final evoImgById = <dynamic, String>{};
+    if (evoIds.isNotEmpty) {
+      final evoRows = await client
+          .from('avatar_evo')
+          .select('id, evo_img')
+          .inFilter('id', evoIds);
+      for (final e in evoRows) {
+        evoImgById[e['id']] = e['evo_img'] as String? ?? '';
+      }
+    }
+
     for (final row in ownedRows) {
-      final id = row['avatar_id'].toString();
+      final id    = row['avatar_id'].toString();
+      final evoId = row['avatar_evo_id'];
       isPurchasedMap[id] = true;
       isCurrentMap[id]   = row['current'] == true;
-      final evo = row['avatar_evo'];
-      if (evo is Map) {
-        ownedEvoImgMap[id] = evo['evo_img'] as String? ?? '';
+      if (evoId != null && evoImgById.containsKey(evoId)) {
+        ownedEvoImgMap[id] = evoImgById[evoId]!;
       }
     }
 

@@ -12,7 +12,10 @@
       "Bash(xargs cat -n)",
       "Bash(git rebase *)",
       "Bash(git add *)",
-      "Bash(GIT_EDITOR=true git rebase --continue)"
+      "Bash(GIT_EDITOR=true git rebase --continue)",
+      "Bash(GIT_TRACE=1 git rebase --continue)",
+      "Bash(git checkout *)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }
