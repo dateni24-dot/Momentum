@@ -96,25 +96,77 @@ class UserProfileNotifier extends AutoDisposeAsyncNotifier<UserProfile?> {
     final userId = client.auth.currentUser?.id;
     if (userId == null) return null;
 
-    final data = await client
+    final userData = await client
         .from(AppConstants.tableUser)
-        .select('''
-          id,
-          username,
-          coins,
-          streak_days,
-          streak_record,
-          user_avatar(
-            current,
-            current_xp,
-            avatar_evo!fk_user_avatar_avatar_evo(evo_img, level, max_xp),
-            avatars(avatar_name)
-          )
-        ''')
+        .select('id, username, coins, streak_days, streak_record')
         .eq('id', userId)
         .single();
 
-    return UserProfile.fromMap(data);
+    // Obtener el avatar activo con su avatar_evo_id explícito
+    final ua = await client
+        .from(AppConstants.tableUserAvatar)
+        .select('current_xp, avatar_evo_id, avatar_id')
+        .eq('user_id', userId)
+        .eq('current', true)
+        .maybeSingle();
+
+    var evoImg     = 'stickman_lv1';
+    var avatarName = 'Stickman';
+    var currentXp  = 0;
+    var level      = 1;
+    var maxXp      = 200;
+
+    if (ua != null) {
+      currentXp = (ua['current_xp'] as num?)?.toInt() ?? 0;
+
+      // Usar avatar_evo_id directamente — sin depender de FK embedding
+      final evoId   = ua['avatar_evo_id'];
+      final avatarId = ua['avatar_id'];
+
+      final futures = await Future.wait<Map<String, dynamic>?>([
+        evoId != null
+          ? client
+              .from(AppConstants.tableAvatarEvo)
+              .select('evo_img, level, max_xp')
+              .eq('id', evoId)
+              .maybeSingle()
+              .then((r) => r == null ? null : Map<String, dynamic>.from(r))
+          : Future.value(null),
+        avatarId != null
+          ? client
+              .from(AppConstants.tableAvatars)
+              .select('avatar_name')
+              .eq('avatar_id', avatarId)
+              .maybeSingle()
+              .then((r) => r == null ? null : Map<String, dynamic>.from(r))
+          : Future.value(null),
+      ]);
+
+      final evoData    = futures[0];
+      final avatarData = futures[1];
+
+      if (evoData != null) {
+        evoImg = evoData['evo_img'] as String? ?? evoImg;
+        level  = (evoData['level']  as num?)?.toInt() ?? level;
+        maxXp  = (evoData['max_xp'] as num?)?.toInt() ?? maxXp;
+      }
+      if (avatarData != null) {
+        avatarName = avatarData['avatar_name'] as String? ?? avatarName;
+      }
+    }
+
+    return UserProfile(
+      id:           userData['id'] as String,
+      username:     userData['username'] as String? ?? 'Usuario',
+      coins:        (userData['coins'] as int?) ?? 0,
+      evoImg:       evoImg,
+      avatarName:   avatarName,
+      currentXp:    currentXp,
+      level:        level,
+      maxXp:        maxXp,
+      streakDays:   (userData['streak_days']   as num?)?.toInt() ?? 0,
+      streakRecord: (userData['streak_record'] as num?)?.toInt() ?? 0,
+    );
   }
 
   Future<void> refresh() async {

@@ -42,7 +42,7 @@ final userAvatarProvider = FutureProvider<UserAvatar?>((ref) async {
           avatar_id,
           avatar_evo_id,
           current_xp,
-          avatars!inner(name),
+          avatars!inner(avatar_name),
           avatar_evo!inner(level)
         ''')
         .eq('user_id', userId)
