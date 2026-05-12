@@ -236,6 +236,6 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
     }
   }
 }
-
+// Provider para el HabitsNotifier que maneja el estado de los hábitos y las operaciones CRUD relacionadas. Se utiliza en la UI para interactuar con los hábitos y reflejar cambios en tiempo real. 
 final habitsNotifierProvider =
     AsyncNotifierProvider<HabitsNotifier, HabitsState>(HabitsNotifier.new);

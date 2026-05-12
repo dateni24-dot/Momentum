@@ -82,7 +82,7 @@ class NotificationService {
     try {
       await _plugin.show(
         999,
-        'Momentum — Prueba ✅',
+        'Momentum — Prueba ',
         'Las notificaciones funcionan correctamente.',
         const NotificationDetails(
           android: AndroidNotificationDetails(
