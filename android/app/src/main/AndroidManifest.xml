@@ -6,9 +6,9 @@
     <!-- Para Android 12 (API 32): el usuario debe concederlo en Ajustes > Alarmas -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
     <application
-        android:label="momentum_app"
+        android:label="Momentum"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
             android:exported="true"
