@@ -145,6 +145,23 @@ class HabitRepository {
     return HabitModel.fromMap(habitMap);
   }
 
+  /// Devuelve los logros recién desbloqueados, o [] si la RPC falla.
+  /// Aislado para poder pasarlo a Future.wait sin perder el catch.
+  Future<List<UnlockedAchievement>> _fetchNewAchievements(String userId) async {
+    try {
+      final result = await _client.rpc(
+        'check_and_grant_achievements',
+        params: {'p_user_id': userId},
+      );
+      if (result == null) return const [];
+      return (result as List)
+          .map((m) => UnlockedAchievement.fromMap(m as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Marca el hábito como completado, actualiza la racha y otorga XP con multiplicador.
   /// [baseXp] = habit.time * 2 (ej: 30 min → 60 XP base).
   /// Solo debe llamarse cuando habit.isReadyToComplete == true.
@@ -163,43 +180,37 @@ class HabitRepository {
       'p_base_xp':  baseXp,
     }) as Map<String, dynamic>;
 
-    final data = await _client
+    // Refetch del hábito y check de logros son independientes entre sí:
+    // se lanzan en paralelo para ahorrar un round-trip al completar.
+    //
+    // El catch del check de logros se traga el error a propósito: si
+    // la RPC falla (red caída, permisos, función mal versionada en
+    // Supabase) NO queremos abortar la finalización del hábito, que ya
+    // está persistida arriba. El coste es que un bug server-side en
+    // check_and_grant_achievements se vuelve invisible — fue así como
+    // el bug de monedas pasó desapercibido semanas. Si en el futuro
+    // añades lógica crítica (p.ej. anti-cheat), súbela a
+    // complete_habit_with_streak en lugar de a check_and_grant_achievements.
+    // Ambos Futures se crean (y empiezan) aquí. El primer await bloquea
+    // hasta que la consulta termine, pero achievementsFuture ha estado
+    // ejecutándose en paralelo todo este tiempo → al llegar al segundo
+    // await, normalmente ya está resuelto.
+    final dataFuture = _client
         .from(AppConstants.tableUserHabits)
         .select('completed, started_at, ${AppConstants.tableHabits}(*)')
         .eq('habit_id', habitId)
         .eq('user_id', userId)
         .single();
+    final achievementsFuture = _fetchNewAchievements(userId);
+
+    final data            = await dataFuture;
+    final newAchievements = await achievementsFuture;
 
     final habitMap = {
       ...data[AppConstants.tableHabits] as Map<String, dynamic>,
       'completed':  data['completed'],
       'started_at': data['started_at'],
     };
-
-    // Evalúa y concede logros según el histórico del usuario.
-    //
-    // El catch traga el error a propósito: si la RPC falla (red caída,
-    // permisos, función mal versionada en Supabase) NO queremos abortar
-    // la finalización del hábito, que ya está persistida arriba. El
-    // coste es que un bug server-side en check_and_grant_achievements
-    // se vuelve invisible — fue así como el bug de monedas pasó
-    // desapercibido semanas. Si en el futuro añades lógica crítica
-    // (p.ej. anti-cheat), súbela a complete_habit_with_streak en lugar
-    // de a check_and_grant_achievements, o quita este catch.
-    List<UnlockedAchievement> newAchievements = [];
-    try {
-      final achievementResult = await _client.rpc(
-        'check_and_grant_achievements',
-        params: {'p_user_id': userId},
-      );
-      if (achievementResult != null) {
-        newAchievements = (achievementResult as List)
-            .map((m) => UnlockedAchievement.fromMap(m as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (_) {
-      // intencionalmente vacío — ver bloque de comentario arriba
-    }
 
     return CompleteHabitResult(
       habit:           HabitModel.fromMap(habitMap),

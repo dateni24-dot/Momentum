@@ -107,19 +107,24 @@ class UserProfileNotifier extends AutoDisposeAsyncNotifier<UserProfile?> {
     final userId = client.auth.currentUser?.id;
     if (userId == null) return null;
 
-    final userData = await client
-        .from(AppConstants.tableUser)
-        .select('id, username, coins, streak_days, streak_record')
-        .eq('id', userId)
-        .single();
-
-    // Obtener el avatar activo con su avatar_evo_id explícito
-    final ua = await client
-        .from(AppConstants.tableUserAvatar)
-        .select('current_xp, avatar_evo_id, avatar_id')
-        .eq('user_id', userId)
-        .eq('current', true)
-        .maybeSingle();
+    // user y user_avatar son independientes → en paralelo. Ahorra un
+    // round-trip cada vez que el perfil se invalida (login, completar
+    // hábito, equipar avatar, etc.).
+    final initial = await Future.wait([
+      client
+          .from(AppConstants.tableUser)
+          .select('id, username, coins, streak_days, streak_record')
+          .eq('id', userId)
+          .single(),
+      client
+          .from(AppConstants.tableUserAvatar)
+          .select('current_xp, avatar_evo_id, avatar_id')
+          .eq('user_id', userId)
+          .eq('current', true)
+          .maybeSingle(),
+    ]);
+    final userData = initial[0]!;   // .single() nunca devuelve null
+    final ua       = initial[1];
 
     var evoImg     = 'stickman_lv1';
     var avatarName = 'Stickman';

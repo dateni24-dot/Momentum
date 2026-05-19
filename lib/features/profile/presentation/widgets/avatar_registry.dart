@@ -52,7 +52,11 @@ class _GifAvatar extends StatelessWidget {
       height: size,
       fit: BoxFit.cover,
       alignment: Alignment.topCenter,
-      filterQuality: FilterQuality.medium,
+      // low es suficiente a los tamaños a los que se renderizan los
+      // avatares (68-150 px). medium aplica un filtro bilineal extra
+      // que solo se nota a tamaños grandes y cuesta CPU por frame —
+      // crítico en el carrusel de la tienda que repinta cada 2.2s.
+      filterQuality: FilterQuality.low,
     );
   }
 }

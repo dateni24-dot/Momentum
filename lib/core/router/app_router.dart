@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,15 +16,25 @@ abstract class AppRoutes {
 
 /// Listenable que se notifica cada vez que cambia el estado de auth
 class _AuthChangeNotifier extends ChangeNotifier {
+  late final StreamSubscription _sub;
   _AuthChangeNotifier() {
-    Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+    _sub = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
       notifyListeners();
     });
+  }
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
   }
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = _AuthChangeNotifier();
+  // Si el provider se invalida (hot restart, tests, signOut con reset),
+  // cierra la suscripción al stream de auth para no acumular listeners.
+  ref.onDispose(authNotifier.dispose);
   return GoRouter(
     initialLocation: _getInitialRoute(),
     refreshListenable: authNotifier,

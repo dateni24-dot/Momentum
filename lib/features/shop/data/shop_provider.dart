@@ -40,17 +40,20 @@ class AvatarShopNotifier
     final userId = client.auth.currentUser?.id;
     if (userId == null) return [];
 
-    // Todos los avatares con todas sus evoluciones para extraer el evo_img de lv1
-    final allAvatars = await client
-        .from('avatars')
-        .select('avatar_id, avatar_name, avatar_descript, avatar_price, avatar_evo(evo_img, level)')
-        .order('avatar_price');
-
-    // Avatares que ya posee el usuario (con avatar_evo_id explícito)
-    final ownedRows = await client
-        .from('user_avatar')
-        .select('avatar_id, current, avatar_evo_id')
-        .eq('user_id', userId);
+    // Las dos queries son independientes → en paralelo para ahorrar un
+    // round-trip al abrir la tienda.
+    final results = await Future.wait([
+      client
+          .from('avatars')
+          .select('avatar_id, avatar_name, avatar_descript, avatar_price, avatar_evo(evo_img, level)')
+          .order('avatar_price'),
+      client
+          .from('user_avatar')
+          .select('avatar_id, current, avatar_evo_id')
+          .eq('user_id', userId),
+    ]);
+    final allAvatars = results[0] as List<dynamic>;
+    final ownedRows  = results[1] as List<dynamic>;
 
     final isPurchasedMap = <String, bool>{};
     final isCurrentMap   = <String, bool>{};

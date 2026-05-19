@@ -318,6 +318,10 @@ class _HomeContent extends ConsumerWidget {
                           child:  Opacity(opacity: value, child: child),
                         ),
                         child: SwipeableHabitCard(
+                          // Key estable por hábito → Flutter empareja el
+                          // widget al mismo habit al reordenar/borrar, no
+                          // por posición. Preserva estado del swipe/ticker.
+                          key:      ValueKey(habit.habitId),
                           habit:    habit,
                           isFirst:  index == 0,
                           onEdit:   () => _openForm(context, habit: habit),
@@ -404,6 +408,15 @@ class _HomeHeader extends ConsumerWidget {
         'Usuario';
     final initial  = username.isNotEmpty ? username[0].toUpperCase() : 'U';
 
+    // Hoist: este header dependía de userProfileProvider en tres sitios
+    // (avatar, chips, barra de progreso). Lo leemos una sola vez para
+    // simplificar dependencias y evitar reevaluar valueOrNull tres veces.
+    final profile   = ref.watch(userProfileProvider).valueOrNull;
+    final glowColor = profile != null
+        ? AvatarRegistry.glowColorForKey(profile.evoImg)
+        : AppColors.primary;
+    final streak    = profile?.streakDays ?? 0;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Column(
@@ -451,92 +464,86 @@ class _HomeHeader extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Avatar con ring de XP
-              Builder(builder: (_) {
-                final profile = ref.watch(userProfileProvider).valueOrNull;
-                final glowColor = profile != null
-                    ? AvatarRegistry.glowColorForKey(profile.evoImg)
-                    : AppColors.primary;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          if (profile != null)
-                            CustomPaint(
-                              size: const Size(80, 80),
-                              painter: _HomeXpRingPainter(
-                                progress: profile.xpProgress,
-                                color: glowColor,
-                              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (profile != null)
+                          CustomPaint(
+                            size: const Size(80, 80),
+                            painter: _HomeXpRingPainter(
+                              progress: profile.xpProgress,
+                              color: glowColor,
                             ),
-                          Container(
-                            width: 68,
-                            height: 68,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.surface,
-                              border: Border.all(
-                                color: glowColor.withValues(alpha: 0.6),
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: glowColor.withValues(alpha: 0.35),
-                                  blurRadius: 16,
-                                  spreadRadius: 2,
-                                ),
-                              ],
+                          ),
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.surface,
+                            border: Border.all(
+                              color: glowColor.withValues(alpha: 0.6),
+                              width: 2,
                             ),
-                            child: ClipOval(
-                              child: profile != null
-                                  ? AvatarRegistry.forKey(profile.evoImg, size: 68)
-                                  : Center(
-                                      child: Text(
-                                        initial,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: glowColor.withValues(alpha: 0.35),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: profile != null
+                                ? AvatarRegistry.forKey(profile.evoImg, size: 68)
+                                : Center(
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                            ),
+                                  ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    // Badge de nivel
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: glowColor,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: glowColor.withValues(alpha: 0.45),
-                            blurRadius: 8,
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        'Lv. ${profile?.level ?? 1}',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  // Badge de nivel
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: glowColor,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: glowColor.withValues(alpha: 0.45),
+                          blurRadius: 8,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'Lv. ${profile?.level ?? 1}',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  ],
-                );
-              }),
+                  ),
+                ],
+              ),
 
               const SizedBox(width: 16),
 
@@ -585,43 +592,37 @@ class _HomeHeader extends ConsumerWidget {
           // ── Chips de estadísticas rápidas ──
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Builder(builder: (context) {
-              final profile = ref.watch(userProfileProvider).valueOrNull;
-              final streak  = profile?.streakDays ?? 0;
-              return Row(
-                children: [
-                  _StatChip(
-                    icon:  Icons.task_alt_rounded,
-                    label: '$habitCount hábito${habitCount == 1 ? '' : 's'}',
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  _StatChip(
-                    icon:  Icons.local_fire_department_rounded,
-                    label: 'Racha: $streak día${streak == 1 ? '' : 's'}',
-                    color: streak > 0
-                        ? const Color(0xFFFF5722)
-                        : AppColors.textSecondary,
-                    glow: streak >= 7,
-                  ),
-                  const SizedBox(width: 10),
-                  _StatChip(
-                    icon:  Icons.monetization_on_rounded,
-                    label: '${profile?.coins ?? 0} monedas',
-                    color: const Color(0xFFFFC107),
-                  ),
-                ],
-              );
-            }),
+            child: Row(
+              children: [
+                _StatChip(
+                  icon:  Icons.task_alt_rounded,
+                  label: '$habitCount hábito${habitCount == 1 ? '' : 's'}',
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon:  Icons.local_fire_department_rounded,
+                  label: 'Racha: $streak día${streak == 1 ? '' : 's'}',
+                  color: streak > 0
+                      ? const Color(0xFFFF5722)
+                      : AppColors.textSecondary,
+                  glow: streak >= 7,
+                ),
+                const SizedBox(width: 10),
+                _StatChip(
+                  icon:  Icons.monetization_on_rounded,
+                  label: '${profile?.coins ?? 0} monedas',
+                  color: const Color(0xFFFFC107),
+                ),
+              ],
+            ),
           ),
 
           // ── Barra de progreso hacia el siguiente multiplicador ──
-          Builder(builder: (context) {
-            final profile = ref.watch(userProfileProvider).valueOrNull;
-            final streak  = profile?.streakDays ?? 0;
-            if (streak >= 30) return const SizedBox(height: 20);
-            return _StreakProgressBar(streakDays: streak);
-          }),
+          if (streak >= 30)
+            const SizedBox(height: 20)
+          else
+            _StreakProgressBar(streakDays: streak),
         ],
       ),
     );
