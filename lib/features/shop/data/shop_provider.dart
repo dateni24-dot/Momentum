@@ -2,6 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/data/auth_provider.dart';
 import '../../profile/data/profile_provider.dart';
 
+/// Una evolución que la carta de tienda puede mostrar como preview.
+class AvatarPreview {
+  final int    level;
+  final String evoImg;
+  const AvatarPreview({required this.level, required this.evoImg});
+}
+
 class ShopAvatar {
   final String id;
   final String name;
@@ -9,8 +16,8 @@ class ShopAvatar {
   final int price;
   final bool isPurchased;
   final bool isCurrent;
-  // Clave para AvatarRegistry (ej. 'stickman_lv1'). Derivada del nombre del avatar.
-  final String previewKey;
+  /// Niveles 1, 5 y 10 (los que existan) para mostrar en carrusel automático.
+  final List<AvatarPreview> previewLevels;
 
   const ShopAvatar({
     required this.id,
@@ -19,7 +26,7 @@ class ShopAvatar {
     required this.price,
     required this.isPurchased,
     required this.isCurrent,
-    required this.previewKey,
+    required this.previewLevels,
   });
 }
 
@@ -47,65 +54,50 @@ class AvatarShopNotifier
 
     final isPurchasedMap = <String, bool>{};
     final isCurrentMap   = <String, bool>{};
-    final ownedEvoImgMap = <String, String>{};
-
-    // Obtener evo_imgs usando avatar_evo_id directamente
-    final evoIds = ownedRows
-        .where((r) => r['avatar_evo_id'] != null)
-        .map((r) => r['avatar_evo_id'])
-        .toList();
-
-    final evoImgById = <dynamic, String>{};
-    if (evoIds.isNotEmpty) {
-      final evoRows = await client
-          .from('avatar_evo')
-          .select('id, evo_img')
-          .inFilter('id', evoIds);
-      for (final e in evoRows) {
-        evoImgById[e['id']] = e['evo_img'] as String? ?? '';
-      }
-    }
 
     for (final row in ownedRows) {
-      final id    = row['avatar_id'].toString();
-      final evoId = row['avatar_evo_id'];
+      final id = row['avatar_id'].toString();
       isPurchasedMap[id] = true;
       isCurrentMap[id]   = row['current'] == true;
-      if (evoId != null && evoImgById.containsKey(evoId)) {
-        ownedEvoImgMap[id] = evoImgById[evoId]!;
-      }
     }
 
     return allAvatars.map<ShopAvatar>((a) {
       final id = a['avatar_id'].toString();
 
-      // evo_img de nivel 1 para mostrar en avatares no comprados
-      String lv1EvoImg = '';
+      // Construir mapa level → evo_img de las evoluciones devueltas en el join
+      final allEvos = <int, String>{};
       final evoData = a['avatar_evo'];
       if (evoData is List) {
         for (final e in evoData) {
-          if (e['level'] == 1) { lv1EvoImg = e['evo_img'] as String? ?? ''; break; }
-        }
-        if (lv1EvoImg.isEmpty && evoData.isNotEmpty) {
-          lv1EvoImg = evoData.first['evo_img'] as String? ?? '';
+          final lvl = (e['level'] as num?)?.toInt();
+          final img = e['evo_img'] as String?;
+          if (lvl != null && img != null) allEvos[lvl] = img;
         }
       } else if (evoData is Map) {
-        lv1EvoImg = evoData['evo_img'] as String? ?? '';
+        final lvl = (evoData['level'] as num?)?.toInt();
+        final img = evoData['evo_img'] as String?;
+        if (lvl != null && img != null) allEvos[lvl] = img;
       }
 
-      // Comprado → mostrar su evolución actual; sin comprar → mostrar lv1
-      final previewKey = ownedEvoImgMap[id]?.isNotEmpty == true
-          ? ownedEvoImgMap[id]!
-          : lv1EvoImg;
+      // Carrusel: niveles 1, 5 y 10 (los que existan). Fallback al primero disponible.
+      final previewLevels = <AvatarPreview>[
+        for (final lvl in const [1, 5, 10])
+          if (allEvos.containsKey(lvl))
+            AvatarPreview(level: lvl, evoImg: allEvos[lvl]!),
+      ];
+      if (previewLevels.isEmpty && allEvos.isNotEmpty) {
+        final firstLvl = allEvos.keys.first;
+        previewLevels.add(AvatarPreview(level: firstLvl, evoImg: allEvos[firstLvl]!));
+      }
 
       return ShopAvatar(
-        id:          id,
-        name:        a['avatar_name'] as String? ?? '',
-        description: a['avatar_descript'] as String? ?? '',
-        price:       (a['avatar_price'] as int?) ?? 0,
-        isPurchased: isPurchasedMap.containsKey(id),
-        isCurrent:   isCurrentMap[id] == true,
-        previewKey:  previewKey,
+        id:            id,
+        name:          a['avatar_name'] as String? ?? '',
+        description:   a['avatar_descript'] as String? ?? '',
+        price:         (a['avatar_price'] as int?) ?? 0,
+        isPurchased:   isPurchasedMap.containsKey(id),
+        isCurrent:     isCurrentMap[id] == true,
+        previewLevels: previewLevels,
       );
     }).toList();
   }

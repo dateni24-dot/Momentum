@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
@@ -219,7 +220,7 @@ class _AvatarCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Preview del avatar
+          // Preview del avatar (carrusel + badge de nivel)
           Expanded(
             flex: 5,
             child: Stack(
@@ -227,7 +228,10 @@ class _AvatarCard extends ConsumerWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: AvatarRegistry.forKey(avatar.previewKey, size: 90),
+                  child: _AvatarCarouselPreview(
+                    levels: avatar.previewLevels,
+                    size:   90,
+                  ),
                 ),
                 if (avatar.isCurrent)
                   Positioned(
@@ -471,6 +475,134 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Carrusel automático de evoluciones del avatar (niveles 1, 5, 10)
+// ---------------------------------------------------------------------------
+
+class _AvatarCarouselPreview extends StatefulWidget {
+  final List<AvatarPreview> levels;
+  final double size;
+
+  const _AvatarCarouselPreview({
+    required this.levels,
+    required this.size,
+  });
+
+  @override
+  State<_AvatarCarouselPreview> createState() => _AvatarCarouselPreviewState();
+}
+
+class _AvatarCarouselPreviewState extends State<_AvatarCarouselPreview> {
+  static const _interval = Duration(milliseconds: 2200);
+  static const _fade     = Duration(milliseconds: 500);
+
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AvatarCarouselPreview old) {
+    super.didUpdateWidget(old);
+    if (old.levels.length != widget.levels.length) {
+      _index = 0;
+      _timer?.cancel();
+      _startTimer();
+    }
+  }
+
+  void _startTimer() {
+    if (widget.levels.length <= 1) return;
+    _timer = Timer.periodic(_interval, (_) {
+      if (!mounted) return;
+      setState(() => _index = (_index + 1) % widget.levels.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.levels.isEmpty) {
+      return SizedBox(width: widget.size, height: widget.size);
+    }
+
+    final current = widget.levels[_index];
+
+    return SizedBox(
+      width:  widget.size,
+      height: widget.size,
+      child: Stack(
+        children: [
+          // Imagen con fade-in/fade-out al cambiar de nivel
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: _fade,
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: SizedBox.expand(
+                key: ValueKey(current.evoImg),
+                child: AvatarRegistry.forKey(current.evoImg, size: widget.size),
+              ),
+            ),
+          ),
+          // Badge de nivel en la esquina inferior izquierda
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: AnimatedSwitcher(
+              duration: _fade,
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: _LevelBadge(
+                key:   ValueKey(current.level),
+                level: current.level,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelBadge extends StatelessWidget {
+  final int level;
+  const _LevelBadge({super.key, required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        'Nv. $level',
+        style: const TextStyle(
+          color:        Colors.white,
+          fontSize:     10,
+          fontWeight:   FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }
