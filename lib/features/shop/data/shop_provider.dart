@@ -103,6 +103,18 @@ class AvatarShopNotifier
   }
 
   /// Compra un avatar. Devuelve un mensaje de error o null si fue exitoso.
+  ///
+  /// LIMITACIÓN CONOCIDA: esta operación NO es atómica. Se lee
+  /// profile.coins, se compara con avatar.price, se descuenta vía
+  /// UPDATE y luego se inserta la fila en user_avatar — todo en
+  /// requests separadas. Si el usuario hace doble-tap muy rápido o
+  /// dos clientes están abiertos a la vez, podría comprar dos avatares
+  /// con un solo balance (o quedarse con coins negativas si el UPDATE
+  /// de descuento no protege contra ello). Para hacerlo robusto habría
+  /// que envolverlo en una RPC server-side con un WHERE coins >= price
+  /// en el UPDATE y comprobar el `count` de filas afectadas. Por ahora
+  /// es aceptable porque el riesgo en producción es bajo y las coins
+  /// no son moneda real, pero documentado para que conste.
   Future<String?> purchaseAvatar(ShopAvatar avatar) async {
     final client = ref.read(supabaseClientProvider);
     final userId = client.auth.currentUser?.id;

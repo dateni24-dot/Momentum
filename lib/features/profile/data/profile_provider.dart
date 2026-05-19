@@ -34,6 +34,13 @@ class UserProfile {
     return (currentXp / maxXp).clamp(0.0, 1.0);
   }
 
+  // DEPRECADO: este factory ya no se usa. La query embebida que lo
+  // alimentaba (user → user_avatar → avatar_evo) se sustituyó en
+  // _fetch() por dos selects explícitos para no depender del FK
+  // embedding de PostgREST, que dejó de funcionar bien tras varios
+  // refactors del esquema. Se conserva por si alguna pantalla antigua
+  // necesita parsear el formato embebido; si en una limpieza futura
+  // confirmas que nadie llama a UserProfile.fromMap, bórralo entero.
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     var evoImg = 'stickman_lv1';
     var avatarName = 'Stickman';
@@ -41,10 +48,14 @@ class UserProfile {
     var level = 1;
     var maxXp = 200;
 
+    // PostgREST devuelve un join 1:N como List, y un join 1:1 como Map.
+    // Cuando hay varias filas (caso típico: un usuario con varios avatares
+    // en user_avatar) hay que elegir cuál es el "activo" — preferimos el
+    // que tiene current = true. Caer al primero es un fallback defensivo:
+    // si quedara basura con todos current = false, al menos algo renderiza.
     Map<String, dynamic>? asMap(dynamic v) {
       if (v is Map) return Map<String, dynamic>.from(v);
       if (v is List && v.isNotEmpty) {
-        // Preferir el avatar marcado como current; si ninguno, usar el primero
         final maps = v.whereType<Map>().toList();
         final current = maps.firstWhere(
           (m) => m['current'] == true,

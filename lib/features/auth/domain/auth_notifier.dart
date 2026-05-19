@@ -149,7 +149,15 @@ class AuthNotifier extends AsyncNotifier<void> {
         return const AuthFailure('No hay sesión activa.');
       }
 
-      // Verificar contraseña actual
+      // Verificar la contraseña actual re-logueando con ella.
+      //
+      // Supabase no expone una API "verifyPassword" — updateUser acepta
+      // una password nueva sin pedir la antigua, lo que sería un fallo
+      // de seguridad si tu token estuviera expuesto (alguien con la
+      // sesión activa podría cambiar la contraseña sin saber la actual).
+      // Hacer signInWithPassword con la antigua es el workaround
+      // estándar: si triunfa, sabemos que el usuario la conoce. Si no,
+      // lanza AuthException y abortamos antes de tocar nada.
       try {
         await _client.auth.signInWithPassword(
           email: user.email!,

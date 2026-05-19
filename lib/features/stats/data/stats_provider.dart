@@ -6,23 +6,34 @@ import '../domain/stats_models.dart';
 final selectedMonthProvider = StateProvider<String?>((ref) => null);
 
 /// Lista de meses con actividad ordenada de más reciente a más antigua.
+///
+/// IMPLEMENTACIÓN NO ÓPTIMA: trae TODAS las filas de habit_completion
+/// del usuario y deduplica en cliente. Funciona bien con usuarios de
+/// pocos meses pero escala mal: un usuario con dos años de uso diario
+/// (≈ 700+ filas) ya descarga datos innecesarios cada vez que entra
+/// a estadísticas. La forma correcta sería una RPC server-side que
+/// devuelva directamente los meses únicos:
+///
+///   SELECT DISTINCT to_char(completed_at, 'YYYY-MM') AS month
+///   FROM habit_completion WHERE user_id = $1 ORDER BY month DESC;
+///
+/// Cuando el número de usuarios activos crezca, conviene migrar esto.
 final availableMonthsProvider = FutureProvider<List<String>>((ref) async {
   final client = ref.read(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   if (userId == null) return [];
-  // Consultamos todas las fechas de finalización del usuario.
+
   final data = await client
       .from('habit_completion')
       .select('completed_at')
       .eq('user_id', userId);
-  // Extraemos los meses únicos en formato 'YYYY-MM'.
+
   final months = <String>{};
   for (final row in data as List) {
     final dt = DateTime.parse((row as Map)['completed_at'] as String).toLocal();
     final m = '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}';
     months.add(m);
   }
-  // Ordenamos de más reciente a más antigua.
   final list = months.toList()..sort((a, b) => b.compareTo(a));
   return list;
 });

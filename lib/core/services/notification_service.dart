@@ -3,6 +3,22 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+// Servicio de notificaciones locales.
+//
+// PATRÓN GENERAL: todas las llamadas al plugin van envueltas en
+// `try { ... } catch (_) {}` con `.timeout(_timeout)` (5s).
+//
+// El motivo: las APIs nativas de notificaciones en Android son
+// inconsistentes entre OEMs (Xiaomi, Huawei, OnePlus, etc. tienen
+// implementaciones agresivas de battery saver que pueden bloquear,
+// fallar o tardar segundos en responder). Una excepción aquí no debe
+// nunca colgar el UI ni romper el flujo principal (ej: completar un
+// hábito). El coste es que si una notificación NO se programa por un
+// bug real, el usuario simplemente no recibe aviso y no hay traza.
+//
+// Si en el futuro empiezan a llegar reports de "no me suenan las
+// notificaciones", lo primero es quitar temporalmente estos catch
+// para ver qué falla — son una caja negra a propósito.
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 

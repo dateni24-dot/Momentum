@@ -203,6 +203,10 @@ class HabitsNotifier extends AsyncNotifier<HabitsState> {
       return HabitFailure('El temporizador aún no ha terminado.');
     }
 
+    // Fórmula de XP base: 2 XP por cada minuto de duración del hábito.
+    // (Ej: 30 min → 60 XP base.) El multiplicador por racha lo aplica
+    // server-side complete_habit_with_streak, así que lo que pasamos
+    // aquí es la cantidad "limpia" sin bonus.
     final baseXp = habit.time * 2;
     state = AsyncValue.data(current.copyWith(isLoading: true));
 

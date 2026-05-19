@@ -110,7 +110,14 @@ class HabitModel {
     );
   }
 
-  // En debug usa segundos en lugar de minutos para testear rápido
+  // En modo debug (kDebugMode) `time` se interpreta como segundos en
+  // lugar de minutos para poder testear el flujo sin esperar.
+  //
+  // OJO: todos los getters derivados (isInProgress, isReadyToComplete,
+  // remainingTime) y la notificación programada en habit_notifier.dart
+  // heredan esta conversión. Si al depurar ves que un hábito de "30"
+  // termina en 30s en vez de 30min, no es un bug — es esto. En release
+  // build (kReleaseMode) AppConstants.debugFastTimer es siempre false.
   Duration get _habitDuration => AppConstants.debugFastTimer
       ? Duration(seconds: time)
       : Duration(minutes: time);

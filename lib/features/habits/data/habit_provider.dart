@@ -176,7 +176,16 @@ class HabitRepository {
       'started_at': data['started_at'],
     };
 
-    // Evalúa y concede logros según el histórico del usuario
+    // Evalúa y concede logros según el histórico del usuario.
+    //
+    // El catch traga el error a propósito: si la RPC falla (red caída,
+    // permisos, función mal versionada en Supabase) NO queremos abortar
+    // la finalización del hábito, que ya está persistida arriba. El
+    // coste es que un bug server-side en check_and_grant_achievements
+    // se vuelve invisible — fue así como el bug de monedas pasó
+    // desapercibido semanas. Si en el futuro añades lógica crítica
+    // (p.ej. anti-cheat), súbela a complete_habit_with_streak en lugar
+    // de a check_and_grant_achievements, o quita este catch.
     List<UnlockedAchievement> newAchievements = [];
     try {
       final achievementResult = await _client.rpc(
@@ -189,7 +198,7 @@ class HabitRepository {
             .toList();
       }
     } catch (_) {
-      // Si falla el check de logros, no interrumpimos la finalización
+      // intencionalmente vacío — ver bloque de comentario arriba
     }
 
     return CompleteHabitResult(
